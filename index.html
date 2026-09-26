@@ -1,1226 +1,272 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#050806">
-<title>AI Signal Bot — Live Engine</title>
+import os
+import time
+import threading
+import logging
+from typing import Dict, List
 
-<style>
-*{box-sizing:border-box}
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-body{
- margin:0;
- background:#050806;
- color:#fff;
- font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+from pocketoptionapi import PocketOption
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+app = FastAPI(title="Pocket Signal Bot")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+SSID = os.getenv("PO_SSID", "").strip()
+
+ASSETS = [
+    "EURUSD_otc",
+    "GBPUSD_otc",
+    "USDJPY_otc",
+    "XAUUSD_otc",
+    "BTCUSD_otc",
+]
+
+PERIOD = 5
+HISTORY_OFFSET = 45000
+MAX_CANDLES = 500
+
+candles_store: Dict[str, List[dict]] = {
+    asset: [] for asset in ASSETS
 }
 
-.app{
- max-width:520px;
- margin:auto;
- padding:16px
-}
-
-header{
- display:flex;
- justify-content:space-between;
- align-items:center
-}
-
-small{
- color:#62e49a;
- letter-spacing:1.5px
-}
-
-h1{
- font-size:24px;
- margin:5px 0 15px
-}
-
-.mode{
- border:1px solid #31553e;
- border-radius:20px;
- padding:7px 10px;
- font-size:10px;
- color:#80e7a4
-}
-
-.card,.signal{
- background:#0b120e;
- border:1px solid #1c2b21;
- border-radius:17px;
- padding:14px;
- margin:11px 0
-}
-
-select{
- width:100%;
- padding:12px;
- border-radius:10px;
- background:#111a15;
- color:white;
- border:1px solid #304737;
- font-weight:bold
-}
-
-.price{
- display:flex;
- justify-content:space-between;
- align-items:center;
- margin-top:14px
-}
-
-.price b{
- font-size:29px
-}
-
-.live{
- font-size:10px
-}
-
-.live.on{
- color:#5ee596
-}
-
-.live.off{
- color:#ffcf66
-}
-
-.chart{
- height:230px;
- padding:5px
-}
-
-canvas{
- width:100%;
- height:100%
-}
-
-.row{
- display:flex;
- justify-content:space-between;
- color:#89968e
-}
-
-.signal{
- text-align:center
-}
-
-#signal{
- font-size:42px;
- font-weight:900;
- padding:15px
-}
-
-.buy{
- color:#55e491
-}
-
-.sell{
- color:#ff5f5f
-}
-
-.wait{
- color:#b9c2bd
-}
-
-.grid{
- display:grid;
- grid-template-columns:1fr 1fr;
- gap:8px
-}
-
-.grid div{
- background:#101812;
- padding:10px;
- border-radius:10px;
- color:#7f8b84;
- font-size:11px
-}
-
-.grid b{
- display:block;
- color:white;
- font-size:16px;
- margin-top:4px
-}
-
-.metrics{
- display:grid;
- grid-template-columns:1fr 1fr;
- padding:1px;
- gap:1px
-}
-
-.metrics div{
- background:#0e1611;
- padding:13px;
- color:#78857d;
- font-size:11px
-}
-
-.metrics b{
- display:block;
- color:white;
- margin-top:5px
-}
-
-button{
- width:100%;
- padding:15px;
- border:0;
- border-radius:12px;
- background:#d9ffe6;
- color:#06100a;
- font-weight:900;
- font-size:16px
-}
-
-.auto{
- text-align:center;
- padding:13px;
- background:#101812;
- border-radius:11px;
- margin:12px 0
-}
-
-.auto b{
- color:#65e69b
-}
-
-.note{
- text-align:center;
- color:#68756d;
- font-size:10px;
- line-height:1.5
-}
-
-.status{
- text-align:center;
- padding:9px;
- border-radius:10px;
- background:#101812;
- color:#ffcf66;
- font-size:11px;
- margin-bottom:10px
-}
-
-.status.connected{
- color:#5ee596
-}
-
-</style>
-</head>
-
-<body>
-
-<div class="app">
-
-<header>
-
-<div>
-<small>LIVE SIGNAL ENGINE</small>
-<h1>🤖 AI Signal Bot</h1>
-</div>
-
-<div class="mode">
-SIGNAL ONLY
-</div>
-
-</header>
-
-
-<div class="card">
-
-<select id="pair">
-
-<option>EUR/USD OTC</option>
-<option>GBP/USD OTC</option>
-<option>USD/JPY OTC</option>
-<option>XAU/USD OTC</option>
-<option>BTC/USD</option>
-
-</select>
-
-<div class="price">
-
-<b id="price">--</b>
-
-<span id="engine" class="live off">
-● DISCONNECTED
-</span>
-
-</div>
-
-</div>
-
-
-<div class="card">
-
-<div id="status" class="status">
-WAITING FOR LIVE CLOSED CANDLES
-</div>
-
-<div class="chart">
-
-<canvas id="chart"></canvas>
-
-</div>
-
-</div>
-
-
-<div class="signal">
-
-<div class="row">
-
-<span>Current Signal</span>
-
-<b id="confidence">
---%
-</b>
-
-</div>
-
-
-<div id="signal" class="wait">
-WAIT
-</div>
-
-
-<div class="grid">
-
-<div>
-
-Duration
-
-<b id="duration">
-5 SEC
-</b>
-
-</div>
-
-
-<div>
-
-Countdown
-
-<b id="countdown">
---
-</b>
-
-</div>
-
-</div>
-
-</div>
-
-
-<div class="card metrics">
-
-<div>
-
-EMA 50 / 200
-
-<b id="ema">
---
-</b>
-
-</div>
-
-
-<div>
-
-RSI 14
-
-<b id="rsi">
---
-</b>
-
-</div>
-
-
-<div>
-
-Momentum
-
-<b id="momentum">
---
-</b>
-
-</div>
-
-
-<div>
-
-Price Action
-
-<b id="action">
---
-</b>
-
-</div>
-
-</div>
-
-
-<div class="card">
-
-<select id="time">
-
-<option value="5">
-5 SEC
-</option>
-
-<option value="10">
-10 SEC
-</option>
-
-<option value="15">
-15 SEC
-</option>
-
-<option value="30">
-30 SEC
-</option>
-
-<option value="60">
-1 MIN
-</option>
-
-<option value="300">
-5 MIN
-</option>
-
-</select>
-
-<br>
-<br>
-
-<button onclick="scan()">
-🔎 SCAN MARKET
-</button>
-
-</div>
-
-
-<div class="auto">
-
-AUTO TRADE:
-<b>OFF</b>
-
-</div>
-
-
-<p class="note">
-
-LIVE mode only.
-
-No random candles are generated.
-
-This page does not login to Pocket Option,
-does not store credentials and does not place trades.
-
-A live-data connector must provide closed candles.
-
-</p>
-
-</div>
-
-
-<script>
-
-/*
-================================================
-LIVE CANDLE CONNECTOR
-================================================
-
-The live connector must call:
-
-pushCandle({
- time: 1727000000,
- open: 1.18000,
- high: 1.18100,
- low: 1.17900,
- close: 1.18050,
- closed: true
-});
-
-NO RANDOM MARKET DATA.
-NO FAKE CANDLES.
-NO AUTO TRADE.
-================================================
-*/
-
-
-let candles=[];
-
-let timer=null;
-
-let signalEnd=0;
-
-
-
-function setStatus(text){
-
- const el=document.getElementById("status");
-
- el.textContent=text;
-
+status = {
+    "connected": False,
+    "time_synced": False,
+    "message": "Starting...",
+    "auto_trade": False,
 }
 
 
+def normalize_candle(c):
+    try:
+        if isinstance(c, dict):
+            return {
+                "time": int(c.get("timestamp", c.get("time", 0))),
+                "open": float(c["open"]),
+                "high": float(c["high"]),
+                "low": float(c["low"]),
+                "close": float(c["close"]),
+                "closed": True,
+            }
 
-function pushCandle(c){
+        return {
+            "time": int(c.timestamp),
+            "open": float(c.open),
+            "high": float(c.high),
+            "low": float(c.low),
+            "close": float(c.close),
+            "closed": True,
+        }
 
- if(!c || c.closed!==true){
+    except Exception:
+        return None
+
+
+def connect_pocket():
+    if not SSID:
+        status["message"] = "PO_SSID is missing"
+        logging.error("PO_SSID is missing")
+        return
+
+    logging.info("Connecting to Pocket Option...")
+
+    try:
+        api = PocketOption(SSID)
+
+        ok, err = api.connect()
+
+        if not ok:
+            status["message"] = f"Connection failed: {err}"
+            logging.error("Pocket Option connection failed: %s", err)
+            return
+
+        logging.info("WebSocket connected")
+
+        # Wait for connection + time synchronization
+        deadline = time.time() + 30
+
+        while time.time() < deadline:
+            connected = api.check_connect()
+            synced = api.is_time_synced()
+
+            status["connected"] = bool(connected)
+            status["time_synced"] = bool(synced)
+
+            if connected and synced:
+                break
+
+            time.sleep(0.5)
+
+        if not api.check_connect():
+            status["message"] = "WebSocket not connected"
+            logging.error("WebSocket is not connected")
+            return
+
+        if not api.is_time_synced():
+            status["message"] = "Time synchronization failed"
+            logging.error("Time synchronization failed")
+            return
+
+        status["message"] = "Connected + time synchronized"
+
+        logging.info("Pocket Option connected successfully")
+        logging.info("Time synchronization ready")
+
+        # Subscribe to assets first
+        for asset in ASSETS:
+            try:
+                api.subscribe(asset, period=PERIOD)
+                logging.info("Subscribed: %s", asset)
+            except Exception as e:
+                logging.error("Subscribe failed %s: %s", asset, e)
+
+        time.sleep(2)
+
+        # Historical candles
+        for asset in ASSETS:
+            try:
+                logging.info("Loading history: %s", asset)
+
+                data = api.get_historical_candles(
+                    asset,
+                    period=PERIOD,
+                    offset=HISTORY_OFFSET,
+                    count_request=1,
+                )
+
+                if not data:
+                    logging.warning("No historical data: %s", asset)
+                    continue
+
+                result = []
 
-  return false;
+                for item in data:
+                    candle = normalize_candle(item)
 
- }
+                    if candle:
+                        result.append(candle)
 
+                result.sort(key=lambda x: x["time"])
 
- const candle={
+                candles_store[asset] = result[-MAX_CANDLES:]
 
-  time:Number(c.time),
+                logging.info(
+                    "Loaded %s candles for %s",
+                    len(candles_store[asset]),
+                    asset
+                )
 
-  open:Number(c.open),
+            except Exception as e:
+                logging.exception(
+                    "History error for %s: %s",
+                    asset,
+                    e
+                )
 
-  high:Number(c.high),
+        status["message"] = "LIVE DATA READY"
 
-  low:Number(c.low),
+        # Keep updating latest candles
+        while True:
+            if not api.check_connect():
+                status["connected"] = False
+                status["message"] = "Disconnected"
+                logging.warning("Pocket Option disconnected")
+                break
 
-  close:Number(c.close),
+            status["connected"] = True
+            status["time_synced"] = api.is_time_synced()
 
-  closed:true
+            for asset in ASSETS:
+                try:
+                    data = api.get_historical_candles(
+                        asset,
+                        period=PERIOD,
+                        offset=45000,
+                        count_request=1,
+                    )
 
- };
+                    if data:
+                        result = []
 
+                        for item in data:
+                            candle = normalize_candle(item)
 
- if(
+                            if candle:
+                                result.append(candle)
 
- !Number.isFinite(candle.time) ||
+                        result.sort(key=lambda x: x["time"])
 
- !Number.isFinite(candle.open) ||
+                        if result:
+                            candles_store[asset] = result[-MAX_CANDLES:]
 
- !Number.isFinite(candle.high) ||
+                except Exception as e:
+                    logging.warning(
+                        "Update failed %s: %s",
+                        asset,
+                        e
+                    )
 
- !Number.isFinite(candle.low) ||
+            time.sleep(5)
 
- !Number.isFinite(candle.close)
+    except Exception as e:
+        status["connected"] = False
+        status["message"] = f"Fatal error: {e}"
+        logging.exception("Pocket Option fatal error")
 
- ){
 
-  return false;
-
- }
-
-
- const last=candles[candles.length-1];
-
-
- if(last && last.time===candle.time){
-
-  candles[candles.length-1]=candle;
-
- }
-
- else{
-
-  candles.push(candle);
-
- }
-
-
- candles=candles.slice(-500);
-
-
- document.getElementById("engine").textContent=
- "● LIVE DATA";
-
-
- document.getElementById("engine").className=
- "live on";
-
-
- setStatus(
- "LIVE CLOSED CANDLES CONNECTED"
- );
-
-
- updatePrice();
-
- drawChart();
-
-
- if(candles.length>=200){
-
-  scan();
-
- }
-
- else{
-
-  setWaiting();
-
- }
-
-
- return true;
-
-}
-
-
-
-function setWaiting(){
-
- document.getElementById("signal").textContent=
- "WAIT";
-
- document.getElementById("signal").className=
- "wait";
-
-
- document.getElementById("confidence").textContent=
- "--%";
-
-
- document.getElementById("ema").textContent=
- "--";
-
-
- document.getElementById("rsi").textContent=
- "--";
-
-
- document.getElementById("momentum").textContent=
- "--";
-
-
- document.getElementById("action").textContent=
- "--";
-
-
- document.getElementById("countdown").textContent=
- "--";
-
-
- if(candles.length<200){
-
-  setStatus(
-   "WAITING: "+
-   candles.length+
-   "/200 CLOSED CANDLES"
-  );
-
- }
-
-}
-
-
-
-function updatePrice(){
-
- if(!candles.length){
-
-  return;
-
- }
-
-
- const p=
- candles[candles.length-1].close;
-
-
- document.getElementById("price").textContent=
- Number(p).toLocaleString(
-  undefined,
-  {
-   maximumFractionDigits:8
-  }
- );
-
-}
-
-
-
-function EMA(values,period){
-
- if(values.length<period){
-
-  return null;
-
- }
-
-
- let e=
- values
- .slice(0,period)
- .reduce(
-  (a,b)=>a+b,
-  0
- )/period;
-
-
- const k=
- 2/(period+1);
-
-
- for(
-  let i=period;
-  i<values.length;
-  i++
- ){
-
-  e=
-   values[i]*k+
-   e*(1-k);
-
- }
-
-
- return e;
-
-}
-
-
-
-function RSI(values,period=14){
-
- if(values.length<period+1){
-
-  return null;
-
- }
-
-
- let gains=0;
-
- let losses=0;
-
-
- const start=
- values.length-period;
-
-
- for(
-  let i=start;
-  i<values.length;
-  i++
- ){
-
-  const d=
-   values[i]-
-   values[i-1];
-
-
-  if(d>0){
-
-   gains+=d;
-
-  }
-
-  else{
-
-   losses-=d;
-
-  }
-
- }
-
-
- if(losses===0){
-
-  return 100;
-
- }
-
-
- const rs=
- gains/losses;
-
-
- return 100-
- (100/(1+rs));
-
-}
-
-
-
-function scan(){
-
- if(candles.length<200){
-
-  setWaiting();
-
-  return;
-
- }
-
-
- const closes=
- candles.map(
-  c=>c.close
- );
-
-
- const e50=
- EMA(closes,50);
-
-
- const e200=
- EMA(closes,200);
-
-
- const r=
- RSI(closes,14);
-
-
- const last=
- candles[candles.length-1];
-
-
- const previous=
- candles[candles.length-2];
-
-
- if(
-  e50===null ||
-  e200===null ||
-  r===null
- ){
-
-  return;
-
- }
-
-
- const last5=
- candles.slice(-5);
-
-
- let bull=0;
-
- let bear=0;
-
-
- /*
- TREND
- */
-
- if(e50>e200){
-
-  bull+=25;
-
- }
-
- else if(e50<e200){
-
-  bear+=25;
-
- }
-
-
- /*
- RSI
- */
-
- if(
-  r>=55 &&
-  r<=70
- ){
-
-  bull+=20;
-
- }
-
- else if(
-  r<=45 &&
-  r>=30
- ){
-
-  bear+=20;
-
- }
-
-
- /*
- MOMENTUM
- */
-
- const momentum=
- last.close-
- previous.close;
-
-
- if(momentum>0){
-
-  bull+=15;
-
- }
-
- else if(momentum<0){
-
-  bear+=15;
-
- }
-
-
- /*
- LAST 5 CLOSED CANDLES
- */
-
- const bullCount=
- last5.filter(
-  c=>c.close>c.open
- ).length;
-
-
- const bearCount=
- last5.filter(
-  c=>c.close<c.open
- ).length;
-
-
- if(bullCount>=3){
-
-  bull+=15;
-
- }
-
-
- if(bearCount>=3){
-
-  bear+=15;
-
- }
-
-
- /*
- PRICE ACTION
- */
-
- if(
-  last.close>last.open &&
-  last.close>previous.close
- ){
-
-  bull+=20;
-
- }
-
- else if(
-  last.close<last.open &&
-  last.close<previous.close
- ){
-
-  bear+=20;
-
- }
-
-
- let signal="WAIT";
-
- let cls="wait";
-
- let confidence=0;
-
-
- if(
-  bull>=70 &&
-  bull>bear+10
- ){
-
-  signal="BUY";
-
-  cls="buy";
-
-  confidence=
-   Math.min(94,bull);
-
- }
-
-
- else if(
-  bear>=70 &&
-  bear>bull+10
- ){
-
-  signal="SELL";
-
-  cls="sell";
-
-  confidence=
-   Math.min(94,bear);
-
- }
-
-
- document.getElementById("signal").textContent=
- signal;
-
-
- document.getElementById("signal").className=
- cls;
-
-
- document.getElementById("confidence").textContent=
- signal==="WAIT"
- ? "--%"
- : confidence+"%";
-
-
- document.getElementById("ema").textContent=
- e50>e200
- ? "BULLISH"
- : "BEARISH";
-
-
- document.getElementById("rsi").textContent=
- r.toFixed(1);
-
-
- document.getElementById("momentum").textContent=
- momentum>0
- ? "UP"
- : momentum<0
- ? "DOWN"
- : "FLAT";
-
-
- document.getElementById("action").textContent=
- bullCount>=3
- ? "BULLISH"
- : bearCount>=3
- ? "BEARISH"
- : "MIXED";
-
-
- startCountdown(
-  parseInt(
-   document.getElementById("time").value,
-   10
-  )
- );
-
-
- drawChart();
-
-}
-
-
-
-function startCountdown(seconds){
-
- clearInterval(timer);
-
-
- signalEnd=
- Date.now()+
- seconds*1000;
-
-
- function update(){
-
-  const left=
-   Math.max(
-    0,
-    Math.ceil(
-     (signalEnd-Date.now())/1000
+@app.on_event("startup")
+def startup_event():
+    thread = threading.Thread(
+        target=connect_pocket,
+        daemon=True
     )
-   );
-
-
-  document.getElementById("countdown").textContent=
-   left+"s";
-
-
-  if(left<=0){
-
-   clearInterval(timer);
-
-   signalEnd=0;
-
-  }
-
- }
-
-
- update();
-
-
- timer=
- setInterval(
-  update,
-  250
- );
-
-}
-
-
-
-function drawChart(){
-
- const canvas=
- document.getElementById("chart");
-
-
- const ctx=
- canvas.getContext("2d");
-
-
- const rect=
- canvas.getBoundingClientRect();
-
-
- canvas.width=
- Math.max(
-  300,
-  Math.floor(rect.width*2)
- );
-
-
- canvas.height=
- Math.max(
-  180,
-  Math.floor(rect.height*2)
- );
-
-
- const w=
- canvas.width;
-
-
- const h=
- canvas.height;
-
-
- ctx.clearRect(
-  0,
-  0,
-  w,
-  h
- );
-
-
- const data=
- candles.slice(-60);
-
-
- if(data.length<2){
-
-  return;
-
- }
-
-
- const values=
- data.map(
-  c=>c.close
- );
-
-
- const min=
- Math.min(...values);
-
-
- const max=
- Math.max(...values);
-
-
- const range=
- max-min||1;
-
-
- ctx.strokeStyle=
- "#55e491";
-
-
- ctx.lineWidth=3;
-
-
- ctx.beginPath();
-
-
- values.forEach(
-  (v,i)=>{
-
-   const x=
-    8+
-    i*(w-16)/
-    (values.length-1);
-
-
-   const y=
-    h-8-
-    ((v-min)/range)*
-    (h-16);
-
-
-   if(i===0){
-
-    ctx.moveTo(x,y);
-
-   }
-
-   else{
-
-    ctx.lineTo(x,y);
-
-   }
-
-  }
- );
-
-
- ctx.stroke();
-
-}
-
-
-
-document
-.getElementById("pair")
-.addEventListener(
- "change",
- ()=>{
-
-  candles=[];
-
-  clearInterval(timer);
-
-  signalEnd=0;
-
-
-  document.getElementById("engine").textContent=
-   "● DISCONNECTED";
-
-
-  document.getElementById("engine").className=
-   "live off";
-
-
-  setWaiting();
-
-
-  drawChart();
-
- }
-);
-
-
-window.addEventListener(
- "resize",
- drawChart
-);
-
-
-setWaiting();
-
-drawChart();
-
-</script>
-
-</body>
-</html>
+    thread.start()
+
+
+@app.get("/")
+def root():
+    return {
+        "service": "Pocket Signal Bot",
+        "status": status,
+        "auto_trade": False,
+    }
+
+
+@app.get("/status")
+def get_status():
+    return {
+        "status": status,
+        "auto_trade": False,
+    }
+
+
+@app.get("/candles")
+def get_candles(asset: str = "EURUSD_otc"):
+    if asset not in candles_store:
+        return {
+            "asset": asset,
+            "candles": [],
+            "error": "Unsupported asset"
+        }
+
+    return {
+        "asset": asset,
+        "period": PERIOD,
+        "candles": candles_store[asset],
+        "count": len(candles_store[asset]),
+        "auto_trade": False,
+    }
