@@ -8,59 +8,194 @@
 
 <style>
 *{box-sizing:border-box}
+
 body{
- margin:0;background:#050806;color:#fff;
+ margin:0;
+ background:#050806;
+ color:#fff;
  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
 }
-.app{max-width:520px;margin:auto;padding:20px}
-h1{margin:0;font-size:28px}
-.sub{color:#8b9b91;margin:5px 0 20px}
+
+.app{
+ max-width:520px;
+ margin:auto;
+ padding:20px
+}
+
+h1{
+ margin:0;
+ font-size:28px
+}
+
+.sub{
+ color:#8b9b91;
+ margin:5px 0 20px
+}
 
 .card{
- background:#0b120e;border:1px solid #1c3325;
- border-radius:18px;padding:18px;margin-bottom:14px
+ background:#0b120e;
+ border:1px solid #1c3325;
+ border-radius:18px;
+ padding:18px;
+ margin-bottom:14px
 }
-label{display:block;color:#9aaa9f;font-size:13px;margin-bottom:7px}
+
+label{
+ display:block;
+ color:#9aaa9f;
+ font-size:13px;
+ margin-bottom:7px
+}
+
 select{
- width:100%;padding:13px;border-radius:12px;
- background:#111b15;color:#fff;border:1px solid #284432;
+ width:100%;
+ padding:13px;
+ border-radius:12px;
+ background:#111b15;
+ color:#fff;
+ border:1px solid #284432;
  font-size:16px
 }
 
 .signal{
- text-align:center;padding:20px;border-radius:16px;
- background:#07160c;margin-top:15px
+ text-align:center;
+ padding:20px;
+ border-radius:16px;
+ background:#07160c;
+ margin-top:15px
 }
-.signal-title{font-size:13px;color:#9aaa9f}
-.signal-value{font-size:38px;font-weight:800;margin:8px 0}
+
+.signal-title{
+ font-size:13px;
+ color:#9aaa9f
+}
+
+.signal-value{
+ font-size:38px;
+ font-weight:800;
+ margin:8px 0
+}
+
 .wait{color:#aaa}
 .buy{color:#38e879}
 .sell{color:#ff5364}
 
 .row{
- display:flex;justify-content:space-between;
- padding:9px 0;border-bottom:1px solid #18251d
+ display:flex;
+ justify-content:space-between;
+ padding:9px 0;
+ border-bottom:1px solid #18251d
 }
-.row:last-child{border-bottom:0}
-.value{font-weight:700}
+
+.row:last-child{
+ border-bottom:0
+}
+
+.value{
+ font-weight:700
+}
 
 .status{
- padding:12px;border-radius:12px;
- background:#101913;color:#9cffb7;
+ padding:12px;
+ border-radius:12px;
+ background:#101913;
+ color:#9cffb7;
  font-size:13px
 }
 
 .bad{color:#ff6875}
 .good{color:#43ee82}
 
+.stats{
+ display:grid;
+ grid-template-columns:repeat(3,1fr);
+ gap:8px;
+ margin-top:12px
+}
+
+.stat{
+ background:#101913;
+ border:1px solid #1c3325;
+ border-radius:12px;
+ padding:12px 5px;
+ text-align:center
+}
+
+.stat-number{
+ font-size:20px;
+ font-weight:800
+}
+
+.stat-label{
+ color:#8b9b91;
+ font-size:11px;
+ margin-top:3px
+}
+
+.history-title{
+ font-size:17px;
+ font-weight:700;
+ margin-bottom:10px
+}
+
+.history-item{
+ background:#101913;
+ border:1px solid #1c3325;
+ border-radius:12px;
+ padding:11px;
+ margin-bottom:8px
+}
+
+.history-top{
+ display:flex;
+ justify-content:space-between;
+ font-weight:700
+}
+
+.history-info{
+ color:#9aaa9f;
+ font-size:12px;
+ margin-top:5px;
+ line-height:1.6
+}
+
+.win{
+ color:#43ee82;
+ font-weight:800
+}
+
+.loss{
+ color:#ff6875;
+ font-weight:800
+}
+
+.pending{
+ color:#ffd166;
+ font-weight:800
+}
+
+.clear{
+ width:100%;
+ padding:11px;
+ border:1px solid #284432;
+ border-radius:10px;
+ background:#111b15;
+ color:#fff;
+ font-size:14px;
+ margin-top:8px
+}
+
 .footer{
- text-align:center;color:#68766d;
- font-size:12px;margin-top:15px
+ text-align:center;
+ color:#68766d;
+ font-size:12px;
+ margin-top:15px
 }
 </style>
 </head>
 
 <body>
+
 <div class="app">
 
 <h1>AI Signal Bot</h1>
@@ -69,6 +204,7 @@ select{
 <div class="card">
 
 <label>Asset</label>
+
 <select id="asset">
 <option value="EURUSD_otc">EUR/USD OTC</option>
 <option value="GBPUSD_otc">GBP/USD OTC</option>
@@ -78,14 +214,30 @@ select{
 </select>
 
 <div class="signal">
-<div class="signal-title">CURRENT SIGNAL</div>
-<div id="signal" class="signal-value wait">WAIT</div>
-<div id="confidence">Confidence: 0%</div>
+
+<div class="signal-title">
+CURRENT SIGNAL
+</div>
+
+<div id="signal" class="signal-value wait">
+WAIT
+</div>
+
+<div id="confidence">
+Confidence: 0%
 </div>
 
 </div>
+
+</div>
+
 
 <div class="card">
+
+<div class="row">
+<span>Entry Price</span>
+<span class="value" id="entryPrice">--</span>
+</div>
 
 <div class="row">
 <span>Duration</span>
@@ -114,13 +266,18 @@ select{
 
 </div>
 
+
 <div class="card">
+
 <div id="status" class="status">
 CONNECTING TO LIVE ENGINE...
 </div>
+
 </div>
 
+
 <div class="card">
+
 <div class="row">
 <span>Closed Candles</span>
 <span class="value" id="count">0 / 200</span>
@@ -128,20 +285,75 @@ CONNECTING TO LIVE ENGINE...
 
 <div class="row">
 <span>Engine</span>
-<span id="engine" class="value bad">DISCONNECTED</span>
+<span id="engine" class="value bad">
+DISCONNECTED
+</span>
 </div>
 
 <div class="row">
 <span>AUTO TRADE</span>
 <span class="value">OFF</span>
 </div>
+
 </div>
+
+
+<div class="card">
+
+<div class="history-title">
+📊 Signal Statistics
+</div>
+
+<div class="stats">
+
+<div class="stat">
+<div class="stat-number" id="totalSignals">0</div>
+<div class="stat-label">TOTAL</div>
+</div>
+
+<div class="stat">
+<div class="stat-number win" id="wins">0</div>
+<div class="stat-label">WIN</div>
+</div>
+
+<div class="stat">
+<div class="stat-number loss" id="losses">0</div>
+<div class="stat-label">LOSS</div>
+</div>
+
+</div>
+
+<div class="row" style="margin-top:10px">
+<span>Win Rate</span>
+<span class="value" id="winRate">0%</span>
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="history-title">
+📜 Signal History
+</div>
+
+<div id="history">
+No signals yet.
+</div>
+
+<button class="clear" onclick="clearHistory()">
+CLEAR HISTORY
+</button>
+
+</div>
+
 
 <div class="footer">
-Pocket Option Live Data • Signal Only
+Pocket Option Live Data • Signal Only • AUTO TRADE OFF
 </div>
 
 </div>
+
 
 <script>
 
@@ -149,199 +361,869 @@ const API =
 "https://pocket-signal-bot-fyae.onrender.com";
 
 let candles=[];
-let lastTime=0;
+let currentSignal=null;
+let lastRecordedKey="";
+let historyData=[];
+
+
+/* =========================
+   STORAGE
+========================= */
+
+function storageKey(){
+
+ const asset=document.getElementById("asset").value;
+
+ return "signal_history_"+asset;
+}
+
+
+function loadHistory(){
+
+ try{
+
+   const saved=
+     localStorage.getItem(storageKey());
+
+   historyData=
+     saved?JSON.parse(saved):[];
+
+ }catch(e){
+
+   historyData=[];
+
+ }
+
+ renderHistory();
+
+}
+
+
+function saveHistory(){
+
+ localStorage.setItem(
+   storageKey(),
+   JSON.stringify(historyData)
+ );
+
+}
+
+
+/* =========================
+   EMA
+========================= */
 
 function ema(values,period){
- if(values.length<period)return null;
+
+ if(values.length<period)
+   return null;
 
  let k=2/(period+1);
- let e=values.slice(0,period)
+
+ let e=
+   values.slice(0,period)
    .reduce((a,b)=>a+b,0)/period;
 
  for(let i=period;i<values.length;i++){
-   e=values[i]*k+e*(1-k);
+
+   e=
+     values[i]*k+
+     e*(1-k);
+
  }
 
  return e;
 }
 
-function rsi(values,period=14){
- if(values.length<=period)return null;
 
- let gain=0,loss=0;
+/* =========================
+   RSI
+========================= */
+
+function rsi(values,period=14){
+
+ if(values.length<=period)
+   return null;
+
+ let gain=0;
+ let loss=0;
 
  for(let i=1;i<=period;i++){
-   let d=values[i]-values[i-1];
-   if(d>0)gain+=d;
-   else loss-=d;
+
+   let d=
+     values[i]-values[i-1];
+
+   if(d>0)
+     gain+=d;
+   else
+     loss-=d;
+
  }
 
  let avgGain=gain/period;
  let avgLoss=loss/period;
 
- for(let i=period+1;i<values.length;i++){
-   let d=values[i]-values[i-1];
+ for(
+   let i=period+1;
+   i<values.length;
+   i++
+ ){
+
+   let d=
+     values[i]-values[i-1];
+
    let g=d>0?d:0;
    let l=d<0?-d:0;
 
-   avgGain=(avgGain*(period-1)+g)/period;
-   avgLoss=(avgLoss*(period-1)+l)/period;
+   avgGain=
+     (avgGain*(period-1)+g)/period;
+
+   avgLoss=
+     (avgLoss*(period-1)+l)/period;
+
  }
 
- if(avgLoss===0)return 100;
+ if(avgLoss===0)
+   return 100;
 
- let rs=avgGain/avgLoss;
+ let rs=
+   avgGain/avgLoss;
+
  return 100-(100/(1+rs));
+
 }
+
+
+/* =========================
+   PRICE FORMAT
+========================= */
+
+function formatPrice(price){
+
+ if(price===null ||
+    price===undefined ||
+    !Number.isFinite(Number(price)))
+   return "--";
+
+ const n=Number(price);
+
+ if(n>=1000)
+   return n.toFixed(2);
+
+ if(n>=100)
+   return n.toFixed(3);
+
+ if(n>=10)
+   return n.toFixed(4);
+
+ return n.toFixed(5);
+
+}
+
+
+/* =========================
+   ANALYZE
+========================= */
 
 function analyze(){
 
  if(candles.length<200){
-   document.getElementById("count").textContent =
-     candles.length+" / 200";
+
+   document.getElementById("count")
+     .textContent=
+       candles.length+" / 200";
 
    return;
+
  }
 
- const closes=candles.map(x=>Number(x.close));
+ const closes=
+   candles.map(
+     x=>Number(x.close)
+   );
 
- const e50=ema(closes,50);
- const e200=ema(closes,200);
- const rv=rsi(closes,14);
+ const e50=
+   ema(closes,50);
 
- const last=candles[candles.length-1];
- const prev=candles[candles.length-2];
+ const e200=
+   ema(closes,200);
 
- const momentum=last.close-prev.close;
+ const rv=
+   rsi(closes,14);
+
+ const last=
+   candles[candles.length-1];
+
+ const prev=
+   candles[candles.length-2];
+
+ const momentum=
+   Number(last.close)-
+   Number(prev.close);
 
  let bull=0;
  let bear=0;
 
- if(e50>e200)bull+=30;
- if(e50<e200)bear+=30;
 
- if(rv>50)bull+=20;
- if(rv<50)bear+=20;
+/* EMA */
 
- if(momentum>0)bull+=20;
- if(momentum<0)bear+=20;
+ if(e50>e200)
+   bull+=30;
 
- if(last.close>last.open)bull+=20;
- if(last.close<last.open)bear+=20;
+ if(e50<e200)
+   bear+=30;
+
+
+/* RSI */
+
+ if(rv>50)
+   bull+=20;
+
+ if(rv<50)
+   bear+=20;
+
+
+/* Momentum */
+
+ if(momentum>0)
+   bull+=20;
+
+ if(momentum<0)
+   bear+=20;
+
+
+/* Price Action */
+
+ if(Number(last.close)>Number(last.open))
+   bull+=20;
+
+ if(Number(last.close)<Number(last.open))
+   bear+=20;
+
 
  let signal="WAIT";
  let confidence=0;
 
- if(bull>=70 && bull>bear+10){
+
+ if(
+   bull>=70 &&
+   bull>bear+10
+ ){
+
    signal="BUY";
-   confidence=Math.min(94,bull);
+
+   confidence=
+     Math.min(94,bull);
+
  }
 
- if(bear>=70 && bear>bull+10){
+
+ if(
+   bear>=70 &&
+   bear>bull+10
+ ){
+
    signal="SELL";
-   confidence=Math.min(94,bear);
+
+   confidence=
+     Math.min(94,bear);
+
  }
 
- const s=document.getElementById("signal");
+
+ const s=
+   document.getElementById("signal");
 
  s.textContent=signal;
- s.className="signal-value "+
-   (signal==="BUY"?"buy":
-    signal==="SELL"?"sell":"wait");
 
- document.getElementById("confidence").textContent=
-   "Confidence: "+confidence+"%";
+ s.className=
+   "signal-value "+
+   (
+     signal==="BUY"
+       ?"buy"
+       :
+     signal==="SELL"
+       ?"sell"
+       :
+     "wait"
+   );
 
- document.getElementById("trend").textContent=
-   e50>e200?"BULLISH":
-   e50<e200?"BEARISH":"WAIT";
 
- document.getElementById("rsi").textContent=
-   rv?rv.toFixed(1):"--";
+ document.getElementById(
+   "confidence"
+ ).textContent=
+   "Confidence: "+
+   confidence+"%";
 
- document.getElementById("momentum").textContent=
-   momentum>0?"UP":
-   momentum<0?"DOWN":"FLAT";
 
- document.getElementById("priceAction").textContent=
-   last.close>last.open?"BULLISH":
-   last.close<last.open?"BEARISH":"NEUTRAL";
+ document.getElementById(
+   "trend"
+ ).textContent=
+   e50>e200
+     ?"BULLISH"
+     :
+   e50<e200
+     ?"BEARISH"
+     :
+     "WAIT";
 
- document.getElementById("duration").textContent=
+
+ document.getElementById(
+   "rsi"
+ ).textContent=
+   rv!==null
+     ?rv.toFixed(1)
+     :"--";
+
+
+ document.getElementById(
+   "momentum"
+ ).textContent=
+   momentum>0
+     ?"UP"
+     :
+   momentum<0
+     ?"DOWN"
+     :
+     "FLAT";
+
+
+ document.getElementById(
+   "priceAction"
+ ).textContent=
+   Number(last.close)>Number(last.open)
+     ?"BULLISH"
+     :
+   Number(last.close)<Number(last.open)
+     ?"BEARISH"
+     :
+     "NEUTRAL";
+
+
+ document.getElementById(
+   "duration"
+ ).textContent=
    "5 sec";
 
- document.getElementById("count").textContent=
+
+ document.getElementById(
+   "entryPrice"
+ ).textContent=
+   signal==="BUY" ||
+   signal==="SELL"
+     ?formatPrice(last.close)
+     :"--";
+
+
+ document.getElementById(
+   "count"
+ ).textContent=
    candles.length+" / 200";
+
+
+/* 
+   Record only once per closed candle.
+*/
+
+ if(signal!=="WAIT"){
+
+   const key=
+     signal+"_"+last.time;
+
+   if(key!==lastRecordedKey){
+
+     lastRecordedKey=key;
+
+     createSignal(
+       signal,
+       confidence,
+       last
+     );
+
+   }
+
+ }
+
 }
+
+
+/* =========================
+   CREATE SIGNAL
+========================= */
+
+function createSignal(
+ signal,
+ confidence,
+ candle
+){
+
+ const asset=
+   document.getElementById("asset").value;
+
+ const item={
+
+   id:
+     Date.now()+"_"+candle.time,
+
+   asset:asset,
+
+   signal:signal,
+
+   confidence:confidence,
+
+   entry:Number(candle.close),
+
+   entryTime:Number(candle.time),
+
+   exit:null,
+
+   result:"PENDING"
+
+ };
+
+ historyData.unshift(item);
+
+ if(historyData.length>50)
+   historyData=
+     historyData.slice(0,50);
+
+ currentSignal=item;
+
+ saveHistory();
+
+ renderHistory();
+
+}
+
+
+/* =========================
+   CHECK 5 SEC RESULT
+========================= */
+
+function checkResults(){
+
+ if(!historyData.length ||
+    !candles.length)
+   return;
+
+ const latest=
+   candles[candles.length-1];
+
+ const latestTime=
+   Number(latest.time);
+
+ let changed=false;
+
+
+ historyData=
+   historyData.map(item=>{
+
+     if(item.result!=="PENDING")
+       return item;
+
+     const elapsed=
+       latestTime-
+       Number(item.entryTime);
+
+     /*
+       Need at least one new
+       closed 5-second candle.
+    */
+
+     if(elapsed<5)
+       return item;
+
+     const exit=
+       Number(latest.close);
+
+     let result="LOSS";
+
+
+     if(item.signal==="BUY"){
+
+       result=
+         exit>Number(item.entry)
+           ?"WIN"
+           :"LOSS";
+
+     }
+
+
+     if(item.signal==="SELL"){
+
+       result=
+         exit<Number(item.entry)
+           ?"WIN"
+           :"LOSS";
+
+     }
+
+
+     changed=true;
+
+     return {
+       ...item,
+       exit:exit,
+       result:result
+     };
+
+   });
+
+
+ if(changed){
+
+   saveHistory();
+   renderHistory();
+
+ }
+
+}
+
+
+/* =========================
+   HISTORY DISPLAY
+========================= */
+
+function renderHistory(){
+
+ const box=
+   document.getElementById("history");
+
+ if(!historyData.length){
+
+   box.innerHTML=
+     "No signals yet.";
+
+ }else{
+
+   box.innerHTML=
+     historyData
+     .slice(0,15)
+     .map(item=>{
+
+       const date=
+         new Date(
+           Number(item.entryTime)*1000
+         );
+
+       const time=
+         date.toLocaleTimeString(
+           [],
+           {
+             hour:"2-digit",
+             minute:"2-digit",
+             second:"2-digit"
+           }
+         );
+
+       const resultClass=
+         item.result==="WIN"
+           ?"win"
+           :
+         item.result==="LOSS"
+           ?"loss"
+           :
+           "pending";
+
+       const exitText=
+         item.exit!==null
+           ?formatPrice(item.exit)
+           :"Waiting...";
+
+       return `
+
+       <div class="history-item">
+
+         <div class="history-top">
+
+           <span>
+             ${item.asset}
+           </span>
+
+           <span class="${
+             item.signal==="BUY"
+               ?"buy"
+               :"sell"
+           }">
+
+             ${item.signal}
+
+           </span>
+
+         </div>
+
+         <div class="history-info">
+
+           Time: ${time}<br>
+
+           Confidence:
+           ${item.confidence}%<br>
+
+           Entry:
+           ${formatPrice(item.entry)}<br>
+
+           Exit:
+           ${exitText}<br>
+
+           Result:
+           <span class="${resultClass}">
+             ${item.result}
+           </span>
+
+         </div>
+
+       </div>
+
+       `;
+
+     })
+     .join("");
+
+ }
+
+
+/* statistics */
+
+ const total=
+   historyData.length;
+
+ const wins=
+   historyData.filter(
+     x=>x.result==="WIN"
+   ).length;
+
+ const losses=
+   historyData.filter(
+     x=>x.result==="LOSS"
+   ).length;
+
+ const completed=
+   wins+losses;
+
+ const rate=
+   completed>0
+     ?((wins/completed)*100).toFixed(1)
+     :0;
+
+
+ document.getElementById(
+   "totalSignals"
+ ).textContent=total;
+
+
+ document.getElementById(
+   "wins"
+ ).textContent=wins;
+
+
+ document.getElementById(
+   "losses"
+ ).textContent=losses;
+
+
+ document.getElementById(
+   "winRate"
+ ).textContent=
+   rate+"%";
+
+}
+
+
+/* =========================
+   CLEAR HISTORY
+========================= */
+
+function clearHistory(){
+
+ if(!confirm(
+   "Clear signal history?"
+ ))
+   return;
+
+ historyData=[];
+
+ lastRecordedKey="";
+
+ localStorage.removeItem(
+   storageKey()
+ );
+
+ renderHistory();
+
+}
+
+
+/* =========================
+   LIVE DATA
+========================= */
 
 async function loadLive(){
 
- const asset=document.getElementById("asset").value;
+ const asset=
+   document.getElementById("asset").value;
 
  try{
 
-   const response=await fetch(
-     API+"/candles?asset="+encodeURIComponent(asset),
-     {cache:"no-store"}
-   );
+   const response=
+     await fetch(
+       API+
+       "/candles?asset="+
+       encodeURIComponent(asset),
+       {
+         cache:"no-store"
+       }
+     );
+
 
    if(!response.ok)
-     throw new Error("API "+response.status);
+     throw new Error(
+       "API "+response.status
+     );
 
-   const data=await response.json();
+
+   const data=
+     await response.json();
+
 
    if(!Array.isArray(data.candles))
-     throw new Error("No candle data");
+     throw new Error(
+       "No candle data"
+     );
 
-   candles=data.candles
+
+   candles=
+     data.candles
+
      .filter(c=>
        c &&
        c.closed===true &&
-       Number.isFinite(Number(c.close))
+       Number.isFinite(
+         Number(c.close)
+       )
      )
-     .sort((a,b)=>Number(a.time)-Number(b.time))
+
+     .sort(
+       (a,b)=>
+         Number(a.time)-
+         Number(b.time)
+     )
+
      .slice(-500);
 
-   if(candles.length)
-     lastTime=candles[candles.length-1].time;
 
-   document.getElementById("engine").textContent="CONNECTED";
-   document.getElementById("engine").className="value good";
+   document.getElementById(
+     "engine"
+   ).textContent=
+     "CONNECTED";
 
-   document.getElementById("status").textContent=
+
+   document.getElementById(
+     "engine"
+   ).className=
+     "value good";
+
+
+   document.getElementById(
+     "status"
+   ).textContent=
      "LIVE DATA • "+asset;
 
-   document.getElementById("status").className=
+
+   document.getElementById(
+     "status"
+   ).className=
      "status good";
+
 
    analyze();
 
+   checkResults();
+
+
  }catch(error){
 
-   document.getElementById("engine").textContent=
+   document.getElementById(
+     "engine"
+   ).textContent=
      "DISCONNECTED";
 
-   document.getElementById("engine").className=
+
+   document.getElementById(
+     "engine"
+   ).className=
      "value bad";
 
-   document.getElementById("status").textContent=
-     "LIVE ENGINE ERROR: "+error.message;
 
-   document.getElementById("status").className=
+   document.getElementById(
+     "status"
+   ).textContent=
+     "LIVE ENGINE ERROR: "+
+     error.message;
+
+
+   document.getElementById(
+     "status"
+   ).className=
      "status bad";
+
  }
+
 }
 
-document.getElementById("asset")
- .addEventListener("change",()=>{
+
+/* =========================
+   ASSET CHANGE
+========================= */
+
+document.getElementById(
+ "asset"
+).addEventListener(
+ "change",
+ ()=>{
+
    candles=[];
+
+   currentSignal=null;
+
+   lastRecordedKey="";
+
+   loadHistory();
+
    loadLive();
- });
+
+ }
+);
+
+
+/* =========================
+   START
+========================= */
+
+loadHistory();
 
 loadLive();
 
-setInterval(loadLive,5000);
+
+/*
+   Refresh every 5 seconds
+*/
+
+setInterval(
+ loadLive,
+ 5000
+);
+
+
+/*
+   Check results every second
+*/
+
+setInterval(
+ checkResults,
+ 1000
+);
 
 </script>
+
 </body>
 </html>
