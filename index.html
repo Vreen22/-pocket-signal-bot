@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07100b">
+<title>AI Signal Bot</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#050806;color:#fff;
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+}
+.app{max-width:520px;margin:auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center}
+small{color:#62e49a;letter-spacing:1.5px}
+h1{font-size:24px;margin:5px 0 15px}
+.mode{
+ border:1px solid #31553e;border-radius:20px;
+ padding:7px 10px;font-size:10px;color:#80e7a4
+}
+.card,.signal{
+ background:#0b120e;border:1px solid #1c2b21;
+ border-radius:17px;padding:14px;margin:11px 0
+}
+select{
+ width:100%;padding:12px;border-radius:10px;
+ background:#111a15;color:white;border:1px solid #304737;
+ font-weight:bold
+}
+.price{
+ display:flex;justify-content:space-between;
+ align-items:center;margin-top:14px
+}
+.price b{font-size:29px}
+.live{color:#5ee596;font-size:10px}
+.chart{height:230px;padding:5px}
+canvas{width:100%;height:100%}
+.row{display:flex;justify-content:space-between;color:#89968e}
+.signal{text-align:center}
+#signal{
+ font-size:42px;font-weight:900;padding:15px
+}
+.buy{color:#55e491}
+.sell{color:#ff5f5f}
+.wait{color:#b9c2bd}
+.grid{
+ display:grid;grid-template-columns:1fr 1fr;gap:8px
+}
+.grid div{
+ background:#101812;padding:10px;border-radius:10px;
+ color:#7f8b84;font-size:11px
+}
+.grid b{display:block;color:white;font-size:16px;margin-top:4px}
+.metrics{
+ display:grid;grid-template-columns:1fr 1fr;
+ padding:1px;gap:1px
+}
+.metrics div{
+ background:#0e1611;padding:13px;
+ color:#78857d;font-size:11px
+}
+.metrics b{display:block;color:white;margin-top:5px}
+button{
+ width:100%;padding:15px;border:0;border-radius:12px;
+ background:#d9ffe6;color:#06100a;
+ font-weight:900;font-size:16px
+}
+.auto{
+ text-align:center;padding:13px;
+ background:#101812;border-radius:11px;
+ margin:12px 0
+}
+.auto b{color:#65e69b}
+.note{
+ text-align:center;color:#68756d;
+ font-size:10px;line-height:1.5
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<header>
+<div>
+<small>LIVE SIGNAL ENGINE</small>
+<h1>🤖 AI Signal Bot</h1>
+</div>
+<div class="mode">SIGNAL ONLY</div>
+</header>
+
+<div class="card">
+
+<select id="pair">
+<option>EUR/USD OTC</option>
+<option>GBP/USD OTC</option>
+<option>USD/JPY OTC</option>
+<option>BTC/USD</option>
+</select>
+
+<div class="price">
+<b id="price">1.18779</b>
+<span class="live">● ENGINE ON</span>
+</div>
+
+</div>
+
+<div class="card chart">
+<canvas id="chart"></canvas>
+</div>
+
+<div class="signal">
+
+<div class="row">
+<span>Current Signal</span>
+<b id="confidence">--%</b>
+</div>
+
+<div id="signal" class="wait">WAIT</div>
+
+<div class="grid">
+<div>
+Duration
+<b id="duration">5 SEC</b>
+</div>
+
+<div>
+Countdown
+<b id="countdown">--</b>
+</div>
+</div>
+
+</div>
+
+<div class="card metrics">
+
+<div>
+EMA 50 / 200
+<b id="ema">--</b>
+</div>
+
+<div>
+RSI 14
+<b id="rsi">--</b>
+</div>
+
+<div>
+Momentum
+<b id="momentum">--</b>
+</div>
+
+<div>
+Price Action
+<b id="action">--</b>
+</div>
+
+</div>
+
+<div class="card">
+
+<select id="time">
+<option value="5">5 SEC</option>
+<option value="10">10 SEC</option>
+<option value="15">15 SEC</option>
+<option value="30">30 SEC</option>
+<option value="60">1 MIN</option>
+</select>
+
+<br><br>
+
+<button onclick="scan()">🔎 SCAN MARKET</button>
+
+</div>
+
+<div class="auto">
+AUTO TRADE: <b>OFF</b>
+</div>
+
+<p class="note">
+Demo signal engine. This version does not login to Pocket Option
+and does not place trades.
+Live market data must be connected separately.
+</p>
+
+</div>
+
+<script>
+
+let candles=[];
+let price=1.18779;
+let timer=null;
+
+function createCandles(){
+
+ candles=[];
+
+ let p=price;
+
+ for(let i=0;i<80;i++){
+
+  let open=p;
+
+  let move=(Math.random()-0.48)*0.0012;
+
+  let close=open+move;
+
+  let high=Math.max(open,close)+Math.random()*0.0004;
+
+  let low=Math.min(open,close)-Math.random()*0.0004;
+
+  candles.push({
+   open,
+   close,
+   high,
+   low
+  });
+
+  p=close;
+ }
+
+ price=p;
+
+}
+
+function EMA(period){
+
+ let k=2/(period+1);
+
+ let e=candles[0].close;
+
+ for(let i=1;i<candles.length;i++){
+
+  e=candles[i].close*k+e*(1-k);
+
+ }
+
+ return e;
+
+}
+
+function RSI(){
+
+ let gains=0;
+ let losses=0;
+
+ for(let i=candles.length-14;i<candles.length;i++){
+
+  let diff=candles[i].close-candles[i-1].close;
+
+  if(diff>0) gains+=diff;
+  else losses-=diff;
+
+ }
+
+ if(losses===0)return 100;
+
+ let rs=gains/losses;
+
+ return 100-(100/(1+rs));
+
+}
+
+function scan(){
+
+ let e50=EMA(50);
+ let e200=EMA(200);
+
+ let rsi=RSI();
+
+ let last=candles[candles.length-1];
+ let previous=candles[candles.length-2];
+
+ let momentum=last.close-previous.close;
+
+ let score=0;
+
+ if(e50>e200) score++;
+ else score--;
+
+ if(rsi>52 && rsi<70) score++;
+
+ if(rsi<48 && rsi>30) score--;
+
+ if(last.close>last.open) score++;
+ else score--;
+
+ if(momentum>0) score++;
+ else score--;
+
+ let signal="WAIT";
+ let cls="wait";
+ let confidence=50;
+
+ if(score>=2){
+
+  signal="BUY";
+  cls="buy";
+  confidence=Math.min(94,64+score*6);
+
+ }
+
+ if(score<=-2){
+
+  signal="SELL";
+  cls="sell";
+  confidence=Math.min(94,64+Math.abs(score)*6);
+
+ }
+
+ document.getElementById("signal").textContent=signal;
+ document.getElementById("signal").className=cls;
+
+ document.getElementById("confidence").textContent=
+ confidence+"%";
+
+ document.getElementById("ema").textContent=
+ e50>e200 ? "BULLISH" : "BEARISH";
+
+ document.getElementById("rsi").textContent=
+ rsi.toFixed(1);
+
+ document.getElementById("momentum").textContent=
+ momentum>0 ? "UP" : "DOWN";
+
+ document.getElementById("action").textContent=
+ last.close>last.open ? "BULLISH" : "BEARISH";
+
+ document.getElementById("price").textContent=
+ last.close.toFixed(5);
+
+ let seconds=parseInt(
+ document.getElementById("time").value
+ );
+
+ document.getElementById("duration").textContent=
+ seconds<60 ? seconds+" SEC" : "1 MIN";
+
+ startCountdown(seconds);
+
+ drawChart();
+
+}
+
+function startCountdown(seconds){
+
+ clearInterval(timer);
+
+ let n=seconds;
+
+ document.getElementById("countdown").textContent=n;
+
+ timer=setInterval(()=>{
+
+  n--;
+
+  document.getElementById("countdown").textContent=n;
+
+  if(n<=0){
+
+   clearInterval(timer);
+
+   createCandles();
+
+   scan();
+
+  }
+
+ },1000);
+
+}
+
+function drawChart(){
+
+ let canvas=document.getElementById("chart");
+
+ let ctx=canvas.getContext("2d");
+
+ canvas.width=canvas.clientWidth*2;
+ canvas.height=canvas.clientHeight*2;
+
+ let w=canvas.width;
+ let h=canvas.height;
+
+ ctx.clearRect(0,0,w,h);
+
+ let values=candles.map(c=>c.close);
+
+ let min=Math.min(...values);
+ let max=Math.max(...values);
+
+ ctx.strokeStyle="#55e491";
+ ctx.lineWidth=3;
+
+ ctx.beginPath();
+
+ values.forEach((v,i)=>{
+
+  let x=8+i*(w-16)/(values.length-1);
+
+  let y=h-8-
+   ((v-min)/(max-min||1))*(h-16);
+
+  if(i===0)ctx.moveTo(x,y);
+  else ctx.lineTo(x,y);
+
+ });
+
+ ctx.stroke();
+
+}
+
+createCandles();
+scan();
+
+window.addEventListener("resize",drawChart);
+
+</script>
+
+</body>
+</html>
