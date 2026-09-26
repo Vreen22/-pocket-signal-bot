@@ -3,80 +3,213 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#07100b">
-<title>AI Signal Bot</title>
+<meta name="theme-color" content="#050806">
+<title>AI Signal Bot — Live Engine</title>
 
 <style>
 *{box-sizing:border-box}
+
 body{
- margin:0;background:#050806;color:#fff;
+ margin:0;
+ background:#050806;
+ color:#fff;
  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
 }
-.app{max-width:520px;margin:auto;padding:16px}
-header{display:flex;justify-content:space-between;align-items:center}
-small{color:#62e49a;letter-spacing:1.5px}
-h1{font-size:24px;margin:5px 0 15px}
+
+.app{
+ max-width:520px;
+ margin:auto;
+ padding:16px
+}
+
+header{
+ display:flex;
+ justify-content:space-between;
+ align-items:center
+}
+
+small{
+ color:#62e49a;
+ letter-spacing:1.5px
+}
+
+h1{
+ font-size:24px;
+ margin:5px 0 15px
+}
+
 .mode{
- border:1px solid #31553e;border-radius:20px;
- padding:7px 10px;font-size:10px;color:#80e7a4
+ border:1px solid #31553e;
+ border-radius:20px;
+ padding:7px 10px;
+ font-size:10px;
+ color:#80e7a4
 }
+
 .card,.signal{
- background:#0b120e;border:1px solid #1c2b21;
- border-radius:17px;padding:14px;margin:11px 0
+ background:#0b120e;
+ border:1px solid #1c2b21;
+ border-radius:17px;
+ padding:14px;
+ margin:11px 0
 }
+
 select{
- width:100%;padding:12px;border-radius:10px;
- background:#111a15;color:white;border:1px solid #304737;
+ width:100%;
+ padding:12px;
+ border-radius:10px;
+ background:#111a15;
+ color:white;
+ border:1px solid #304737;
  font-weight:bold
 }
+
 .price{
- display:flex;justify-content:space-between;
- align-items:center;margin-top:14px
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ margin-top:14px
 }
-.price b{font-size:29px}
-.live{color:#5ee596;font-size:10px}
-.chart{height:230px;padding:5px}
-canvas{width:100%;height:100%}
-.row{display:flex;justify-content:space-between;color:#89968e}
-.signal{text-align:center}
+
+.price b{
+ font-size:29px
+}
+
+.live{
+ font-size:10px
+}
+
+.live.on{
+ color:#5ee596
+}
+
+.live.off{
+ color:#ffcf66
+}
+
+.chart{
+ height:230px;
+ padding:5px
+}
+
+canvas{
+ width:100%;
+ height:100%
+}
+
+.row{
+ display:flex;
+ justify-content:space-between;
+ color:#89968e
+}
+
+.signal{
+ text-align:center
+}
+
 #signal{
- font-size:42px;font-weight:900;padding:15px
+ font-size:42px;
+ font-weight:900;
+ padding:15px
 }
-.buy{color:#55e491}
-.sell{color:#ff5f5f}
-.wait{color:#b9c2bd}
+
+.buy{
+ color:#55e491
+}
+
+.sell{
+ color:#ff5f5f
+}
+
+.wait{
+ color:#b9c2bd
+}
+
 .grid{
- display:grid;grid-template-columns:1fr 1fr;gap:8px
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:8px
 }
+
 .grid div{
- background:#101812;padding:10px;border-radius:10px;
- color:#7f8b84;font-size:11px
+ background:#101812;
+ padding:10px;
+ border-radius:10px;
+ color:#7f8b84;
+ font-size:11px
 }
-.grid b{display:block;color:white;font-size:16px;margin-top:4px}
+
+.grid b{
+ display:block;
+ color:white;
+ font-size:16px;
+ margin-top:4px
+}
+
 .metrics{
- display:grid;grid-template-columns:1fr 1fr;
- padding:1px;gap:1px
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ padding:1px;
+ gap:1px
 }
+
 .metrics div{
- background:#0e1611;padding:13px;
- color:#78857d;font-size:11px
+ background:#0e1611;
+ padding:13px;
+ color:#78857d;
+ font-size:11px
 }
-.metrics b{display:block;color:white;margin-top:5px}
+
+.metrics b{
+ display:block;
+ color:white;
+ margin-top:5px
+}
+
 button{
- width:100%;padding:15px;border:0;border-radius:12px;
- background:#d9ffe6;color:#06100a;
- font-weight:900;font-size:16px
+ width:100%;
+ padding:15px;
+ border:0;
+ border-radius:12px;
+ background:#d9ffe6;
+ color:#06100a;
+ font-weight:900;
+ font-size:16px
 }
+
 .auto{
- text-align:center;padding:13px;
- background:#101812;border-radius:11px;
+ text-align:center;
+ padding:13px;
+ background:#101812;
+ border-radius:11px;
  margin:12px 0
 }
-.auto b{color:#65e69b}
-.note{
- text-align:center;color:#68756d;
- font-size:10px;line-height:1.5
+
+.auto b{
+ color:#65e69b
 }
+
+.note{
+ text-align:center;
+ color:#68756d;
+ font-size:10px;
+ line-height:1.5
+}
+
+.status{
+ text-align:center;
+ padding:9px;
+ border-radius:10px;
+ background:#101812;
+ color:#ffcf66;
+ font-size:11px;
+ margin-bottom:10px
+}
+
+.status.connected{
+ color:#5ee596
+}
+
 </style>
 </head>
 
@@ -85,337 +218,1007 @@ button{
 <div class="app">
 
 <header>
+
 <div>
 <small>LIVE SIGNAL ENGINE</small>
 <h1>🤖 AI Signal Bot</h1>
 </div>
-<div class="mode">SIGNAL ONLY</div>
+
+<div class="mode">
+SIGNAL ONLY
+</div>
+
 </header>
+
 
 <div class="card">
 
 <select id="pair">
+
 <option>EUR/USD OTC</option>
 <option>GBP/USD OTC</option>
 <option>USD/JPY OTC</option>
+<option>XAU/USD OTC</option>
 <option>BTC/USD</option>
+
 </select>
 
 <div class="price">
-<b id="price">1.18779</b>
-<span class="live">● ENGINE ON</span>
-</div>
+
+<b id="price">--</b>
+
+<span id="engine" class="live off">
+● DISCONNECTED
+</span>
 
 </div>
 
-<div class="card chart">
+</div>
+
+
+<div class="card">
+
+<div id="status" class="status">
+WAITING FOR LIVE CLOSED CANDLES
+</div>
+
+<div class="chart">
+
 <canvas id="chart"></canvas>
+
 </div>
+
+</div>
+
 
 <div class="signal">
 
 <div class="row">
+
 <span>Current Signal</span>
-<b id="confidence">--%</b>
+
+<b id="confidence">
+--%
+</b>
+
 </div>
 
-<div id="signal" class="wait">WAIT</div>
+
+<div id="signal" class="wait">
+WAIT
+</div>
+
 
 <div class="grid">
+
 <div>
+
 Duration
-<b id="duration">5 SEC</b>
+
+<b id="duration">
+5 SEC
+</b>
+
 </div>
+
 
 <div>
+
 Countdown
-<b id="countdown">--</b>
-</div>
+
+<b id="countdown">
+--
+</b>
+
 </div>
 
 </div>
+
+</div>
+
 
 <div class="card metrics">
 
 <div>
+
 EMA 50 / 200
-<b id="ema">--</b>
+
+<b id="ema">
+--
+</b>
+
 </div>
 
+
 <div>
+
 RSI 14
-<b id="rsi">--</b>
+
+<b id="rsi">
+--
+</b>
+
 </div>
 
+
 <div>
+
 Momentum
-<b id="momentum">--</b>
+
+<b id="momentum">
+--
+</b>
+
 </div>
+
 
 <div>
+
 Price Action
-<b id="action">--</b>
+
+<b id="action">
+--
+</b>
+
 </div>
 
 </div>
+
 
 <div class="card">
 
 <select id="time">
-<option value="5">5 SEC</option>
-<option value="10">10 SEC</option>
-<option value="15">15 SEC</option>
-<option value="30">30 SEC</option>
-<option value="60">1 MIN</option>
+
+<option value="5">
+5 SEC
+</option>
+
+<option value="10">
+10 SEC
+</option>
+
+<option value="15">
+15 SEC
+</option>
+
+<option value="30">
+30 SEC
+</option>
+
+<option value="60">
+1 MIN
+</option>
+
+<option value="300">
+5 MIN
+</option>
+
 </select>
 
-<br><br>
+<br>
+<br>
 
-<button onclick="scan()">🔎 SCAN MARKET</button>
+<button onclick="scan()">
+🔎 SCAN MARKET
+</button>
 
 </div>
+
 
 <div class="auto">
-AUTO TRADE: <b>OFF</b>
+
+AUTO TRADE:
+<b>OFF</b>
+
 </div>
 
+
 <p class="note">
-Demo signal engine. This version does not login to Pocket Option
-and does not place trades.
-Live market data must be connected separately.
+
+LIVE mode only.
+
+No random candles are generated.
+
+This page does not login to Pocket Option,
+does not store credentials and does not place trades.
+
+A live-data connector must provide closed candles.
+
 </p>
 
 </div>
 
+
 <script>
 
+/*
+================================================
+LIVE CANDLE CONNECTOR
+================================================
+
+The live connector must call:
+
+pushCandle({
+ time: 1727000000,
+ open: 1.18000,
+ high: 1.18100,
+ low: 1.17900,
+ close: 1.18050,
+ closed: true
+});
+
+NO RANDOM MARKET DATA.
+NO FAKE CANDLES.
+NO AUTO TRADE.
+================================================
+*/
+
+
 let candles=[];
-let price=1.18779;
+
 let timer=null;
 
-function createCandles(){
+let signalEnd=0;
 
- candles=[];
 
- let p=price;
 
- for(let i=0;i<80;i++){
+function setStatus(text){
 
-  let open=p;
+ const el=document.getElementById("status");
 
-  let move=(Math.random()-0.48)*0.0012;
-
-  let close=open+move;
-
-  let high=Math.max(open,close)+Math.random()*0.0004;
-
-  let low=Math.min(open,close)-Math.random()*0.0004;
-
-  candles.push({
-   open,
-   close,
-   high,
-   low
-  });
-
-  p=close;
- }
-
- price=p;
+ el.textContent=text;
 
 }
 
-function EMA(period){
 
- let k=2/(period+1);
 
- let e=candles[0].close;
+function pushCandle(c){
 
- for(let i=1;i<candles.length;i++){
+ if(!c || c.closed!==true){
 
-  e=candles[i].close*k+e*(1-k);
+  return false;
 
  }
+
+
+ const candle={
+
+  time:Number(c.time),
+
+  open:Number(c.open),
+
+  high:Number(c.high),
+
+  low:Number(c.low),
+
+  close:Number(c.close),
+
+  closed:true
+
+ };
+
+
+ if(
+
+ !Number.isFinite(candle.time) ||
+
+ !Number.isFinite(candle.open) ||
+
+ !Number.isFinite(candle.high) ||
+
+ !Number.isFinite(candle.low) ||
+
+ !Number.isFinite(candle.close)
+
+ ){
+
+  return false;
+
+ }
+
+
+ const last=candles[candles.length-1];
+
+
+ if(last && last.time===candle.time){
+
+  candles[candles.length-1]=candle;
+
+ }
+
+ else{
+
+  candles.push(candle);
+
+ }
+
+
+ candles=candles.slice(-500);
+
+
+ document.getElementById("engine").textContent=
+ "● LIVE DATA";
+
+
+ document.getElementById("engine").className=
+ "live on";
+
+
+ setStatus(
+ "LIVE CLOSED CANDLES CONNECTED"
+ );
+
+
+ updatePrice();
+
+ drawChart();
+
+
+ if(candles.length>=200){
+
+  scan();
+
+ }
+
+ else{
+
+  setWaiting();
+
+ }
+
+
+ return true;
+
+}
+
+
+
+function setWaiting(){
+
+ document.getElementById("signal").textContent=
+ "WAIT";
+
+ document.getElementById("signal").className=
+ "wait";
+
+
+ document.getElementById("confidence").textContent=
+ "--%";
+
+
+ document.getElementById("ema").textContent=
+ "--";
+
+
+ document.getElementById("rsi").textContent=
+ "--";
+
+
+ document.getElementById("momentum").textContent=
+ "--";
+
+
+ document.getElementById("action").textContent=
+ "--";
+
+
+ document.getElementById("countdown").textContent=
+ "--";
+
+
+ if(candles.length<200){
+
+  setStatus(
+   "WAITING: "+
+   candles.length+
+   "/200 CLOSED CANDLES"
+  );
+
+ }
+
+}
+
+
+
+function updatePrice(){
+
+ if(!candles.length){
+
+  return;
+
+ }
+
+
+ const p=
+ candles[candles.length-1].close;
+
+
+ document.getElementById("price").textContent=
+ Number(p).toLocaleString(
+  undefined,
+  {
+   maximumFractionDigits:8
+  }
+ );
+
+}
+
+
+
+function EMA(values,period){
+
+ if(values.length<period){
+
+  return null;
+
+ }
+
+
+ let e=
+ values
+ .slice(0,period)
+ .reduce(
+  (a,b)=>a+b,
+  0
+ )/period;
+
+
+ const k=
+ 2/(period+1);
+
+
+ for(
+  let i=period;
+  i<values.length;
+  i++
+ ){
+
+  e=
+   values[i]*k+
+   e*(1-k);
+
+ }
+
 
  return e;
 
 }
 
-function RSI(){
 
- let gains=0;
- let losses=0;
 
- for(let i=candles.length-14;i<candles.length;i++){
+function RSI(values,period=14){
 
-  let diff=candles[i].close-candles[i-1].close;
+ if(values.length<period+1){
 
-  if(diff>0) gains+=diff;
-  else losses-=diff;
+  return null;
 
  }
 
- if(losses===0)return 100;
 
- let rs=gains/losses;
+ let gains=0;
 
- return 100-(100/(1+rs));
+ let losses=0;
+
+
+ const start=
+ values.length-period;
+
+
+ for(
+  let i=start;
+  i<values.length;
+  i++
+ ){
+
+  const d=
+   values[i]-
+   values[i-1];
+
+
+  if(d>0){
+
+   gains+=d;
+
+  }
+
+  else{
+
+   losses-=d;
+
+  }
+
+ }
+
+
+ if(losses===0){
+
+  return 100;
+
+ }
+
+
+ const rs=
+ gains/losses;
+
+
+ return 100-
+ (100/(1+rs));
 
 }
 
+
+
 function scan(){
 
- let e50=EMA(50);
- let e200=EMA(200);
+ if(candles.length<200){
 
- let rsi=RSI();
+  setWaiting();
 
- let last=candles[candles.length-1];
- let previous=candles[candles.length-2];
-
- let momentum=last.close-previous.close;
-
- let score=0;
-
- if(e50>e200) score++;
- else score--;
-
- if(rsi>52 && rsi<70) score++;
-
- if(rsi<48 && rsi>30) score--;
-
- if(last.close>last.open) score++;
- else score--;
-
- if(momentum>0) score++;
- else score--;
-
- let signal="WAIT";
- let cls="wait";
- let confidence=50;
-
- if(score>=2){
-
-  signal="BUY";
-  cls="buy";
-  confidence=Math.min(94,64+score*6);
+  return;
 
  }
 
- if(score<=-2){
 
-  signal="SELL";
-  cls="sell";
-  confidence=Math.min(94,64+Math.abs(score)*6);
-
- }
-
- document.getElementById("signal").textContent=signal;
- document.getElementById("signal").className=cls;
-
- document.getElementById("confidence").textContent=
- confidence+"%";
-
- document.getElementById("ema").textContent=
- e50>e200 ? "BULLISH" : "BEARISH";
-
- document.getElementById("rsi").textContent=
- rsi.toFixed(1);
-
- document.getElementById("momentum").textContent=
- momentum>0 ? "UP" : "DOWN";
-
- document.getElementById("action").textContent=
- last.close>last.open ? "BULLISH" : "BEARISH";
-
- document.getElementById("price").textContent=
- last.close.toFixed(5);
-
- let seconds=parseInt(
- document.getElementById("time").value
+ const closes=
+ candles.map(
+  c=>c.close
  );
 
- document.getElementById("duration").textContent=
- seconds<60 ? seconds+" SEC" : "1 MIN";
 
- startCountdown(seconds);
+ const e50=
+ EMA(closes,50);
+
+
+ const e200=
+ EMA(closes,200);
+
+
+ const r=
+ RSI(closes,14);
+
+
+ const last=
+ candles[candles.length-1];
+
+
+ const previous=
+ candles[candles.length-2];
+
+
+ if(
+  e50===null ||
+  e200===null ||
+  r===null
+ ){
+
+  return;
+
+ }
+
+
+ const last5=
+ candles.slice(-5);
+
+
+ let bull=0;
+
+ let bear=0;
+
+
+ /*
+ TREND
+ */
+
+ if(e50>e200){
+
+  bull+=25;
+
+ }
+
+ else if(e50<e200){
+
+  bear+=25;
+
+ }
+
+
+ /*
+ RSI
+ */
+
+ if(
+  r>=55 &&
+  r<=70
+ ){
+
+  bull+=20;
+
+ }
+
+ else if(
+  r<=45 &&
+  r>=30
+ ){
+
+  bear+=20;
+
+ }
+
+
+ /*
+ MOMENTUM
+ */
+
+ const momentum=
+ last.close-
+ previous.close;
+
+
+ if(momentum>0){
+
+  bull+=15;
+
+ }
+
+ else if(momentum<0){
+
+  bear+=15;
+
+ }
+
+
+ /*
+ LAST 5 CLOSED CANDLES
+ */
+
+ const bullCount=
+ last5.filter(
+  c=>c.close>c.open
+ ).length;
+
+
+ const bearCount=
+ last5.filter(
+  c=>c.close<c.open
+ ).length;
+
+
+ if(bullCount>=3){
+
+  bull+=15;
+
+ }
+
+
+ if(bearCount>=3){
+
+  bear+=15;
+
+ }
+
+
+ /*
+ PRICE ACTION
+ */
+
+ if(
+  last.close>last.open &&
+  last.close>previous.close
+ ){
+
+  bull+=20;
+
+ }
+
+ else if(
+  last.close<last.open &&
+  last.close<previous.close
+ ){
+
+  bear+=20;
+
+ }
+
+
+ let signal="WAIT";
+
+ let cls="wait";
+
+ let confidence=0;
+
+
+ if(
+  bull>=70 &&
+  bull>bear+10
+ ){
+
+  signal="BUY";
+
+  cls="buy";
+
+  confidence=
+   Math.min(94,bull);
+
+ }
+
+
+ else if(
+  bear>=70 &&
+  bear>bull+10
+ ){
+
+  signal="SELL";
+
+  cls="sell";
+
+  confidence=
+   Math.min(94,bear);
+
+ }
+
+
+ document.getElementById("signal").textContent=
+ signal;
+
+
+ document.getElementById("signal").className=
+ cls;
+
+
+ document.getElementById("confidence").textContent=
+ signal==="WAIT"
+ ? "--%"
+ : confidence+"%";
+
+
+ document.getElementById("ema").textContent=
+ e50>e200
+ ? "BULLISH"
+ : "BEARISH";
+
+
+ document.getElementById("rsi").textContent=
+ r.toFixed(1);
+
+
+ document.getElementById("momentum").textContent=
+ momentum>0
+ ? "UP"
+ : momentum<0
+ ? "DOWN"
+ : "FLAT";
+
+
+ document.getElementById("action").textContent=
+ bullCount>=3
+ ? "BULLISH"
+ : bearCount>=3
+ ? "BEARISH"
+ : "MIXED";
+
+
+ startCountdown(
+  parseInt(
+   document.getElementById("time").value,
+   10
+  )
+ );
+
 
  drawChart();
 
 }
 
+
+
 function startCountdown(seconds){
 
  clearInterval(timer);
 
- let n=seconds;
 
- document.getElementById("countdown").textContent=n;
+ signalEnd=
+ Date.now()+
+ seconds*1000;
 
- timer=setInterval(()=>{
 
-  n--;
+ function update(){
 
-  document.getElementById("countdown").textContent=n;
+  const left=
+   Math.max(
+    0,
+    Math.ceil(
+     (signalEnd-Date.now())/1000
+    )
+   );
 
-  if(n<=0){
+
+  document.getElementById("countdown").textContent=
+   left+"s";
+
+
+  if(left<=0){
 
    clearInterval(timer);
 
-   createCandles();
-
-   scan();
+   signalEnd=0;
 
   }
 
- },1000);
+ }
+
+
+ update();
+
+
+ timer=
+ setInterval(
+  update,
+  250
+ );
 
 }
 
+
+
 function drawChart(){
 
- let canvas=document.getElementById("chart");
+ const canvas=
+ document.getElementById("chart");
 
- let ctx=canvas.getContext("2d");
 
- canvas.width=canvas.clientWidth*2;
- canvas.height=canvas.clientHeight*2;
+ const ctx=
+ canvas.getContext("2d");
 
- let w=canvas.width;
- let h=canvas.height;
 
- ctx.clearRect(0,0,w,h);
+ const rect=
+ canvas.getBoundingClientRect();
 
- let values=candles.map(c=>c.close);
 
- let min=Math.min(...values);
- let max=Math.max(...values);
+ canvas.width=
+ Math.max(
+  300,
+  Math.floor(rect.width*2)
+ );
 
- ctx.strokeStyle="#55e491";
+
+ canvas.height=
+ Math.max(
+  180,
+  Math.floor(rect.height*2)
+ );
+
+
+ const w=
+ canvas.width;
+
+
+ const h=
+ canvas.height;
+
+
+ ctx.clearRect(
+  0,
+  0,
+  w,
+  h
+ );
+
+
+ const data=
+ candles.slice(-60);
+
+
+ if(data.length<2){
+
+  return;
+
+ }
+
+
+ const values=
+ data.map(
+  c=>c.close
+ );
+
+
+ const min=
+ Math.min(...values);
+
+
+ const max=
+ Math.max(...values);
+
+
+ const range=
+ max-min||1;
+
+
+ ctx.strokeStyle=
+ "#55e491";
+
+
  ctx.lineWidth=3;
+
 
  ctx.beginPath();
 
- values.forEach((v,i)=>{
 
-  let x=8+i*(w-16)/(values.length-1);
+ values.forEach(
+  (v,i)=>{
 
-  let y=h-8-
-   ((v-min)/(max-min||1))*(h-16);
+   const x=
+    8+
+    i*(w-16)/
+    (values.length-1);
 
-  if(i===0)ctx.moveTo(x,y);
-  else ctx.lineTo(x,y);
 
- });
+   const y=
+    h-8-
+    ((v-min)/range)*
+    (h-16);
+
+
+   if(i===0){
+
+    ctx.moveTo(x,y);
+
+   }
+
+   else{
+
+    ctx.lineTo(x,y);
+
+   }
+
+  }
+ );
+
 
  ctx.stroke();
 
 }
 
-createCandles();
-scan();
 
-window.addEventListener("resize",drawChart);
+
+document
+.getElementById("pair")
+.addEventListener(
+ "change",
+ ()=>{
+
+  candles=[];
+
+  clearInterval(timer);
+
+  signalEnd=0;
+
+
+  document.getElementById("engine").textContent=
+   "● DISCONNECTED";
+
+
+  document.getElementById("engine").className=
+   "live off";
+
+
+  setWaiting();
+
+
+  drawChart();
+
+ }
+);
+
+
+window.addEventListener(
+ "resize",
+ drawChart
+);
+
+
+setWaiting();
+
+drawChart();
 
 </script>
 
