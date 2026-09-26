@@ -26,10 +26,7 @@ logger = logging.getLogger(__name__)
 # FASTAPI
 # =========================================================
 
-app = FastAPI(
-    title="Pocket Signal Bot",
-    version="1.0"
-)
+app = FastAPI(title="Pocket Signal Bot")
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,17 +51,15 @@ ASSETS = [
     "BTCUSD_otc",
 ]
 
-# 5-second candles
 PERIOD = 5
 
-# Large offset helps avoid Pocket Option history timeout
 HISTORY_OFFSET = 45000
 
-# Multiple history pages
 HISTORY_REQUESTS = 3
 
-# Maximum candles sent to frontend
 MAX_CANDLES = 500
+
+TICK_LIMIT = 100
 
 
 # =========================================================
@@ -75,7 +70,6 @@ candles_store: Dict[str, List[dict]] = {
     asset: [] for asset in ASSETS
 }
 
-
 status = {
     "connected": False,
     "time_synced": False,
@@ -83,24 +77,16 @@ status = {
     "auto_trade": False,
 }
 
-
 api_instance = None
 
 
 # =========================================================
-# CANDLE NORMALIZER
+# NORMALIZE CANDLE
 # =========================================================
 
 def normalize_candle(item: Any):
-    """
-    Convert PocketOption candle data into our standard format.
-    """
 
     try:
-
-        # ---------------------------------------------
-        # Dictionary
-        # ---------------------------------------------
 
         if isinstance(item, dict):
 
@@ -122,11 +108,6 @@ def normalize_candle(item: Any):
                 "closed": True,
             }
 
-
-        # ---------------------------------------------
-        # Object with attributes
-        # ---------------------------------------------
-
         timestamp = getattr(
             item,
             "timestamp",
@@ -145,18 +126,12 @@ def normalize_candle(item: Any):
             "closed": True,
         }
 
-    except Exception as e:
-
-        logger.debug(
-            "Candle normalization failed: %s",
-            e
-        )
-
+    except Exception:
         return None
 
 
 # =========================================================
-# NORMALIZE HISTORY RESULT
+# NORMALIZE HISTORY
 # =========================================================
 
 def normalize_history(data: Any) -> List[dict]:
@@ -166,11 +141,7 @@ def normalize_history(data: Any) -> List[dict]:
     if data is None:
         return result
 
-
-    # ---------------------------------------------
     # Pandas DataFrame
-    # ---------------------------------------------
-
     if hasattr(data, "to_dict"):
 
         try:
@@ -189,14 +160,9 @@ def normalize_history(data: Any) -> List[dict]:
         except Exception:
             pass
 
-
-    # ---------------------------------------------
-    # Dictionary containing candles
-    # ---------------------------------------------
-
+    # Dictionary
     if isinstance(data, dict):
 
-        # Sometimes API may return nested data
         possible = (
             data.get("candles")
             or data.get("data")
@@ -207,6 +173,7 @@ def normalize_history(data: Any) -> List[dict]:
             data = possible
 
         else:
+
             candle = normalize_candle(data)
 
             if candle:
@@ -214,11 +181,7 @@ def normalize_history(data: Any) -> List[dict]:
 
             return result
 
-
-    # ---------------------------------------------
     # List / tuple
-    # ---------------------------------------------
-
     if isinstance(data, (list, tuple)):
 
         for item in data:
@@ -230,11 +193,6 @@ def normalize_history(data: Any) -> List[dict]:
 
         return result
 
-
-    # ---------------------------------------------
-    # Single object
-    # ---------------------------------------------
-
     candle = normalize_candle(data)
 
     if candle:
@@ -244,7 +202,7 @@ def normalize_history(data: Any) -> List[dict]:
 
 
 # =========================================================
-# REMOVE DUPLICATES
+# CLEAN CANDLES
 # =========================================================
 
 def clean_candles(items: List[dict]) -> List[dict]:
@@ -254,13 +212,22 @@ def clean_candles(items: List[dict]) -> List[dict]:
     for candle in items:
 
         try:
+
             timestamp = int(candle["time"])
 
-            unique[timestamp] = candle
+            unique[timestamp] = {
+                "time": timestamp,
+                "open": float(candle["open"]),
+                "high": float(candle["high"]),
+                "low": float(candle["low"]),
+                "close": float(candle["close"]),
+                "closed": bool(
+                    candle.get("closed", True)
+                ),
+            }
 
         except Exception:
             continue
-
 
     result = list(unique.values())
 
@@ -272,7 +239,219 @@ def clean_candles(items: List[dict]) -> List[dict]:
 
 
 # =========================================================
-# LOAD HISTORY
+# TICK PARSER
+# =========================================================
+
+def parse_tick(tick):
+
+    try:
+
+        # Current library returns:
+        # (timestamp, price)
+
+        if isinstance(tick, (list, tuple)):
+
+            if len(tick) >= 2:
+
+                timestamp = float(tick[0])
+                price = float(tick[1])
+
+                return timestamp, price
+
+        # Dictionary fallback
+
+        if isinstance(tick, dict):
+
+            timestamp = (
+                tick.get("timestamp")
+                or tick.get("time")
+                or tick.get("ts")
+            )
+
+            price = (
+                tick.get("price")
+                or tick.get("close")
+                or tick.get("value")
+            )
+
+            if timestamp is not None and price is not None:
+
+                return (
+                    float(timestamp),
+                    float(price)
+                )
+
+    except Exception:
+        pass
+
+    return None
+
+
+# =========================================================
+# BUILD CANDLES FROM REALTIME TICKS
+# =========================================================
+
+def ticks_to_candles(
+    api: PocketOption,
+    asset: str
+) -> List[dict]:
+
+    result = []
+
+    try:
+
+        ticks = api.get_realtime_ticks(
+            asset,
+            limit=TICK_LIMIT
+        )
+
+    except Exception as e:
+
+        logger.warning(
+            "Tick read failed %s: %s",
+            asset,
+            e
+        )
+
+        return result
+
+    if not ticks:
+        return result
+
+    buckets = {}
+
+    for tick in ticks:
+
+        parsed = parse_tick(tick)
+
+        if not parsed:
+            continue
+
+        timestamp, price = parsed
+
+        # 5-second bucket
+        bucket = (
+            int(timestamp) // PERIOD
+        ) * PERIOD
+
+        if bucket not in buckets:
+
+            buckets[bucket] = {
+                "time": bucket,
+                "open": price,
+                "high": price,
+                "low": price,
+                "close": price,
+            }
+
+        else:
+
+            candle = buckets[bucket]
+
+            candle["high"] = max(
+                candle["high"],
+                price
+            )
+
+            candle["low"] = min(
+                candle["low"],
+                price
+            )
+
+            candle["close"] = price
+
+    # Current server candle must remain forming.
+    # Only completed buckets are returned.
+
+    try:
+        server_time = int(
+            api.get_server_timestamp()
+        )
+    except Exception:
+        server_time = int(time.time())
+
+    current_bucket = (
+        server_time // PERIOD
+    ) * PERIOD
+
+    for bucket, candle in buckets.items():
+
+        if bucket < current_bucket:
+
+            result.append({
+                "time": bucket,
+                "open": float(candle["open"]),
+                "high": float(candle["high"]),
+                "low": float(candle["low"]),
+                "close": float(candle["close"]),
+                "closed": True,
+            })
+
+    result.sort(
+        key=lambda x: x["time"]
+    )
+
+    return result
+
+
+# =========================================================
+# MERGE REALTIME TICKS
+# =========================================================
+
+def merge_realtime_ticks(
+    api: PocketOption,
+    asset: str
+):
+
+    try:
+
+        tick_candles = ticks_to_candles(
+            api,
+            asset
+        )
+
+        if not tick_candles:
+            return
+
+        existing = candles_store.get(
+            asset,
+            []
+        )
+
+        combined = existing + tick_candles
+
+        cleaned = clean_candles(
+            combined
+        )
+
+        if len(cleaned) > len(existing):
+
+            candles_store[asset] = cleaned
+
+            logger.info(
+                "Realtime merged %s: %s candles",
+                asset,
+                len(cleaned)
+            )
+
+        else:
+
+            # Still update OHLC values if the
+            # timestamp already exists.
+
+            candles_store[asset] = cleaned
+
+    except Exception as e:
+
+        logger.warning(
+            "Realtime merge failed %s: %s",
+            asset,
+            e
+        )
+
+
+# =========================================================
+# LOAD INITIAL HISTORY
 # =========================================================
 
 def load_asset_history(
@@ -285,11 +464,8 @@ def load_asset_history(
         asset
     )
 
-    all_candles = []
-
     try:
 
-        # Subscribe first
         api.subscribe(
             asset,
             period=PERIOD
@@ -300,13 +476,7 @@ def load_asset_history(
             asset
         )
 
-        # Give stream a moment
         time.sleep(1)
-
-
-        # -----------------------------------------
-        # Multiple history requests
-        # -----------------------------------------
 
         data = api.get_historical_candles(
             asset,
@@ -315,47 +485,35 @@ def load_asset_history(
             count_request=HISTORY_REQUESTS,
         )
 
-
-        candles = normalize_history(data)
-
-        if candles:
-
-            all_candles.extend(candles)
-
-
-        cleaned = clean_candles(
-            all_candles
+        candles = normalize_history(
+            data
         )
 
+        cleaned = clean_candles(
+            candles
+        )
 
         candles_store[asset] = cleaned
 
-
         logger.info(
-            "Loaded %s closed candles for %s",
-            len(cleaned),
+            "Initial %s: %s candles",
+            asset,
+            len(cleaned)
+        )
+
+        # Immediately merge any available ticks
+        merge_realtime_ticks(
+            api,
             asset
         )
 
-
-        if len(cleaned) >= 200:
-
-            logger.info(
-                "READY: %s has enough candles for signal engine",
-                asset
-            )
-
-        else:
-
-            logger.warning(
-                "Only %s candles available for %s; need 200",
-                len(cleaned),
-                asset
-            )
-
+        logger.info(
+            "Ready %s: %s candles",
+            asset,
+            len(candles_store[asset])
+        )
 
         return True
-
 
     except Exception as e:
 
@@ -369,10 +527,10 @@ def load_asset_history(
 
 
 # =========================================================
-# UPDATE ONE ASSET
+# OPTIONAL HISTORY REFRESH
 # =========================================================
 
-def update_asset(
+def refresh_history(
     api: PocketOption,
     asset: str
 ):
@@ -386,49 +544,45 @@ def update_asset(
             count_request=1,
         )
 
+        history = normalize_history(
+            data
+        )
 
-        candles = normalize_history(data)
+        if history:
 
-
-        if candles:
-
-            candles = clean_candles(
-                candles
+            existing = candles_store.get(
+                asset,
+                []
             )
 
-            if candles:
+            combined = existing + history
 
-                candles_store[asset] = candles
-
-
-                logger.info(
-                    "Updated %s: %s candles",
-                    asset,
-                    len(candles)
-                )
-
+            candles_store[asset] = clean_candles(
+                combined
+            )
 
     except Exception as e:
 
         logger.warning(
-            "Update failed %s: %s",
+            "History refresh failed %s: %s",
             asset,
             e
         )
 
 
 # =========================================================
-# POCKET OPTION CONNECTION
+# CONNECT TO POCKET OPTION
 # =========================================================
 
 def connect_pocket():
 
     global api_instance
 
-
     if not SSID:
 
-        status["message"] = "PO_SSID is missing"
+        status["message"] = (
+            "PO_SSID is missing"
+        )
 
         logger.error(
             "PO_SSID is missing"
@@ -436,25 +590,19 @@ def connect_pocket():
 
         return
 
-
     logger.info(
         "Connecting to Pocket Option..."
     )
 
-
     try:
 
-        api = PocketOption(SSID)
+        api = PocketOption(
+            SSID
+        )
 
         api_instance = api
 
-
-        # -----------------------------------------
-        # Connect
-        # -----------------------------------------
-
         ok, err = api.connect()
-
 
         if not ok:
 
@@ -469,25 +617,21 @@ def connect_pocket():
 
             return
 
-
         logger.info(
             "WebSocket connected"
         )
 
-
-        # -----------------------------------------
-        # Wait for connection + time sync
-        # -----------------------------------------
+        # -------------------------------------------------
+        # Wait for connection + time synchronization
+        # -------------------------------------------------
 
         deadline = time.time() + 30
-
 
         while time.time() < deadline:
 
             connected = api.check_connect()
 
             synced = api.is_time_synced()
-
 
             status["connected"] = bool(
                 connected
@@ -497,18 +641,10 @@ def connect_pocket():
                 synced
             )
 
-
             if connected and synced:
-
                 break
 
-
             time.sleep(0.5)
-
-
-        # -----------------------------------------
-        # Verify connection
-        # -----------------------------------------
 
         if not api.check_connect():
 
@@ -519,15 +655,10 @@ def connect_pocket():
             )
 
             logger.error(
-                "WebSocket is not connected"
+                "WebSocket not connected"
             )
 
             return
-
-
-        # -----------------------------------------
-        # Verify time synchronization
-        # -----------------------------------------
 
         if not api.is_time_synced():
 
@@ -543,7 +674,6 @@ def connect_pocket():
 
             return
 
-
         status["connected"] = True
 
         status["time_synced"] = True
@@ -551,7 +681,6 @@ def connect_pocket():
         status["message"] = (
             "Connected + time synchronized"
         )
-
 
         logger.info(
             "Pocket Option connected successfully"
@@ -561,13 +690,11 @@ def connect_pocket():
             "Time synchronization ready"
         )
 
+        # -------------------------------------------------
+        # Initial history
+        # -------------------------------------------------
 
-        # =================================================
-        # INITIAL HISTORY
-        # =================================================
-
-        successful_assets = 0
-
+        successful = 0
 
         for asset in ASSETS:
 
@@ -576,31 +703,25 @@ def connect_pocket():
                 asset
             ):
 
-                successful_assets += 1
-
+                successful += 1
 
         logger.info(
-            "Initial history complete: %s/%s assets",
-            successful_assets,
+            "Initial history complete: %s/%s",
+            successful,
             len(ASSETS)
         )
-
 
         status["message"] = (
             "LIVE DATA READY"
         )
 
+        # -------------------------------------------------
+        # LIVE LOOP
+        # -------------------------------------------------
 
-        # =================================================
-        # LIVE UPDATE LOOP
-        # =================================================
+        loop_counter = 0
 
         while True:
-
-
-            # -----------------------------------------
-            # Check connection
-            # -----------------------------------------
 
             if not api.check_connect():
 
@@ -616,34 +737,51 @@ def connect_pocket():
 
                 break
 
-
             status["connected"] = True
 
             status["time_synced"] = (
                 api.is_time_synced()
             )
 
-
-            # -----------------------------------------
-            # Update all assets
-            # -----------------------------------------
+            # ---------------------------------------------
+            # MAIN: realtime ticks
+            # ---------------------------------------------
 
             for asset in ASSETS:
 
-                update_asset(
+                merge_realtime_ticks(
                     api,
                     asset
                 )
 
+            # ---------------------------------------------
+            # Every 30 seconds, refresh history too.
+            # It is NOT used to overwrite existing data.
+            # ---------------------------------------------
+
+            loop_counter += 1
+
+            if loop_counter >= 6:
+
+                loop_counter = 0
+
+                for asset in ASSETS:
+
+                    refresh_history(
+                        api,
+                        asset
+                    )
+
+                    merge_realtime_ticks(
+                        api,
+                        asset
+                    )
 
             status["message"] = (
                 "LIVE DATA READY"
             )
 
-
-            # Update every 5 seconds
             time.sleep(5)
-
 
     except Exception as e:
 
@@ -659,7 +797,7 @@ def connect_pocket():
 
 
 # =========================================================
-# START BACKGROUND THREAD
+# START
 # =========================================================
 
 @app.on_event("startup")
@@ -720,12 +858,10 @@ def get_candles(
             "auto_trade": False,
         }
 
-
     candles = candles_store.get(
         asset,
         []
     )
-
 
     return {
         "asset": asset,
