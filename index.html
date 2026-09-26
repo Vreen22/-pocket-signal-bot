@@ -1,272 +1,347 @@
-import os
-import time
-import threading
-import logging
-from typing import Dict, List
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#050806">
+<title>AI Signal Bot — Live</title>
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#050806;color:#fff;
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+}
+.app{max-width:520px;margin:auto;padding:20px}
+h1{margin:0;font-size:28px}
+.sub{color:#8b9b91;margin:5px 0 20px}
 
-from pocketoptionapi import PocketOption
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s"
-)
-
-app = FastAPI(title="Pocket Signal Bot")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-SSID = os.getenv("PO_SSID", "").strip()
-
-ASSETS = [
-    "EURUSD_otc",
-    "GBPUSD_otc",
-    "USDJPY_otc",
-    "XAUUSD_otc",
-    "BTCUSD_otc",
-]
-
-PERIOD = 5
-HISTORY_OFFSET = 45000
-MAX_CANDLES = 500
-
-candles_store: Dict[str, List[dict]] = {
-    asset: [] for asset in ASSETS
+.card{
+ background:#0b120e;border:1px solid #1c3325;
+ border-radius:18px;padding:18px;margin-bottom:14px
+}
+label{display:block;color:#9aaa9f;font-size:13px;margin-bottom:7px}
+select{
+ width:100%;padding:13px;border-radius:12px;
+ background:#111b15;color:#fff;border:1px solid #284432;
+ font-size:16px
 }
 
-status = {
-    "connected": False,
-    "time_synced": False,
-    "message": "Starting...",
-    "auto_trade": False,
+.signal{
+ text-align:center;padding:20px;border-radius:16px;
+ background:#07160c;margin-top:15px
+}
+.signal-title{font-size:13px;color:#9aaa9f}
+.signal-value{font-size:38px;font-weight:800;margin:8px 0}
+.wait{color:#aaa}
+.buy{color:#38e879}
+.sell{color:#ff5364}
+
+.row{
+ display:flex;justify-content:space-between;
+ padding:9px 0;border-bottom:1px solid #18251d
+}
+.row:last-child{border-bottom:0}
+.value{font-weight:700}
+
+.status{
+ padding:12px;border-radius:12px;
+ background:#101913;color:#9cffb7;
+ font-size:13px
 }
 
+.bad{color:#ff6875}
+.good{color:#43ee82}
 
-def normalize_candle(c):
-    try:
-        if isinstance(c, dict):
-            return {
-                "time": int(c.get("timestamp", c.get("time", 0))),
-                "open": float(c["open"]),
-                "high": float(c["high"]),
-                "low": float(c["low"]),
-                "close": float(c["close"]),
-                "closed": True,
-            }
+.footer{
+ text-align:center;color:#68766d;
+ font-size:12px;margin-top:15px
+}
+</style>
+</head>
 
-        return {
-            "time": int(c.timestamp),
-            "open": float(c.open),
-            "high": float(c.high),
-            "low": float(c.low),
-            "close": float(c.close),
-            "closed": True,
-        }
+<body>
+<div class="app">
 
-    except Exception:
-        return None
+<h1>AI Signal Bot</h1>
+<div class="sub">LIVE SIGNAL ENGINE</div>
 
+<div class="card">
 
-def connect_pocket():
-    if not SSID:
-        status["message"] = "PO_SSID is missing"
-        logging.error("PO_SSID is missing")
-        return
+<label>Asset</label>
+<select id="asset">
+<option value="EURUSD_otc">EUR/USD OTC</option>
+<option value="GBPUSD_otc">GBP/USD OTC</option>
+<option value="USDJPY_otc">USD/JPY OTC</option>
+<option value="XAUUSD_otc">XAU/USD OTC</option>
+<option value="BTCUSD_otc">BTC/USD</option>
+</select>
 
-    logging.info("Connecting to Pocket Option...")
+<div class="signal">
+<div class="signal-title">CURRENT SIGNAL</div>
+<div id="signal" class="signal-value wait">WAIT</div>
+<div id="confidence">Confidence: 0%</div>
+</div>
 
-    try:
-        api = PocketOption(SSID)
+</div>
 
-        ok, err = api.connect()
+<div class="card">
 
-        if not ok:
-            status["message"] = f"Connection failed: {err}"
-            logging.error("Pocket Option connection failed: %s", err)
-            return
+<div class="row">
+<span>Duration</span>
+<span class="value" id="duration">5 sec</span>
+</div>
 
-        logging.info("WebSocket connected")
+<div class="row">
+<span>EMA Trend</span>
+<span class="value" id="trend">WAIT</span>
+</div>
 
-        # Wait for connection + time synchronization
-        deadline = time.time() + 30
+<div class="row">
+<span>RSI 14</span>
+<span class="value" id="rsi">--</span>
+</div>
 
-        while time.time() < deadline:
-            connected = api.check_connect()
-            synced = api.is_time_synced()
+<div class="row">
+<span>Momentum</span>
+<span class="value" id="momentum">--</span>
+</div>
 
-            status["connected"] = bool(connected)
-            status["time_synced"] = bool(synced)
+<div class="row">
+<span>Price Action</span>
+<span class="value" id="priceAction">--</span>
+</div>
 
-            if connected and synced:
-                break
+</div>
 
-            time.sleep(0.5)
+<div class="card">
+<div id="status" class="status">
+CONNECTING TO LIVE ENGINE...
+</div>
+</div>
 
-        if not api.check_connect():
-            status["message"] = "WebSocket not connected"
-            logging.error("WebSocket is not connected")
-            return
+<div class="card">
+<div class="row">
+<span>Closed Candles</span>
+<span class="value" id="count">0 / 200</span>
+</div>
 
-        if not api.is_time_synced():
-            status["message"] = "Time synchronization failed"
-            logging.error("Time synchronization failed")
-            return
+<div class="row">
+<span>Engine</span>
+<span id="engine" class="value bad">DISCONNECTED</span>
+</div>
 
-        status["message"] = "Connected + time synchronized"
+<div class="row">
+<span>AUTO TRADE</span>
+<span class="value">OFF</span>
+</div>
+</div>
 
-        logging.info("Pocket Option connected successfully")
-        logging.info("Time synchronization ready")
+<div class="footer">
+Pocket Option Live Data • Signal Only
+</div>
 
-        # Subscribe to assets first
-        for asset in ASSETS:
-            try:
-                api.subscribe(asset, period=PERIOD)
-                logging.info("Subscribed: %s", asset)
-            except Exception as e:
-                logging.error("Subscribe failed %s: %s", asset, e)
+</div>
 
-        time.sleep(2)
+<script>
 
-        # Historical candles
-        for asset in ASSETS:
-            try:
-                logging.info("Loading history: %s", asset)
+const API =
+"https://pocket-signal-bot-fyae.onrender.com";
 
-                data = api.get_historical_candles(
-                    asset,
-                    period=PERIOD,
-                    offset=HISTORY_OFFSET,
-                    count_request=1,
-                )
+let candles=[];
+let lastTime=0;
 
-                if not data:
-                    logging.warning("No historical data: %s", asset)
-                    continue
+function ema(values,period){
+ if(values.length<period)return null;
 
-                result = []
+ let k=2/(period+1);
+ let e=values.slice(0,period)
+   .reduce((a,b)=>a+b,0)/period;
 
-                for item in data:
-                    candle = normalize_candle(item)
+ for(let i=period;i<values.length;i++){
+   e=values[i]*k+e*(1-k);
+ }
 
-                    if candle:
-                        result.append(candle)
+ return e;
+}
 
-                result.sort(key=lambda x: x["time"])
+function rsi(values,period=14){
+ if(values.length<=period)return null;
 
-                candles_store[asset] = result[-MAX_CANDLES:]
+ let gain=0,loss=0;
 
-                logging.info(
-                    "Loaded %s candles for %s",
-                    len(candles_store[asset]),
-                    asset
-                )
+ for(let i=1;i<=period;i++){
+   let d=values[i]-values[i-1];
+   if(d>0)gain+=d;
+   else loss-=d;
+ }
 
-            except Exception as e:
-                logging.exception(
-                    "History error for %s: %s",
-                    asset,
-                    e
-                )
+ let avgGain=gain/period;
+ let avgLoss=loss/period;
 
-        status["message"] = "LIVE DATA READY"
+ for(let i=period+1;i<values.length;i++){
+   let d=values[i]-values[i-1];
+   let g=d>0?d:0;
+   let l=d<0?-d:0;
 
-        # Keep updating latest candles
-        while True:
-            if not api.check_connect():
-                status["connected"] = False
-                status["message"] = "Disconnected"
-                logging.warning("Pocket Option disconnected")
-                break
+   avgGain=(avgGain*(period-1)+g)/period;
+   avgLoss=(avgLoss*(period-1)+l)/period;
+ }
 
-            status["connected"] = True
-            status["time_synced"] = api.is_time_synced()
+ if(avgLoss===0)return 100;
 
-            for asset in ASSETS:
-                try:
-                    data = api.get_historical_candles(
-                        asset,
-                        period=PERIOD,
-                        offset=45000,
-                        count_request=1,
-                    )
+ let rs=avgGain/avgLoss;
+ return 100-(100/(1+rs));
+}
 
-                    if data:
-                        result = []
+function analyze(){
 
-                        for item in data:
-                            candle = normalize_candle(item)
+ if(candles.length<200){
+   document.getElementById("count").textContent =
+     candles.length+" / 200";
 
-                            if candle:
-                                result.append(candle)
+   return;
+ }
 
-                        result.sort(key=lambda x: x["time"])
+ const closes=candles.map(x=>Number(x.close));
 
-                        if result:
-                            candles_store[asset] = result[-MAX_CANDLES:]
+ const e50=ema(closes,50);
+ const e200=ema(closes,200);
+ const rv=rsi(closes,14);
 
-                except Exception as e:
-                    logging.warning(
-                        "Update failed %s: %s",
-                        asset,
-                        e
-                    )
+ const last=candles[candles.length-1];
+ const prev=candles[candles.length-2];
 
-            time.sleep(5)
+ const momentum=last.close-prev.close;
 
-    except Exception as e:
-        status["connected"] = False
-        status["message"] = f"Fatal error: {e}"
-        logging.exception("Pocket Option fatal error")
+ let bull=0;
+ let bear=0;
 
+ if(e50>e200)bull+=30;
+ if(e50<e200)bear+=30;
 
-@app.on_event("startup")
-def startup_event():
-    thread = threading.Thread(
-        target=connect_pocket,
-        daemon=True
-    )
-    thread.start()
+ if(rv>50)bull+=20;
+ if(rv<50)bear+=20;
 
+ if(momentum>0)bull+=20;
+ if(momentum<0)bear+=20;
 
-@app.get("/")
-def root():
-    return {
-        "service": "Pocket Signal Bot",
-        "status": status,
-        "auto_trade": False,
-    }
+ if(last.close>last.open)bull+=20;
+ if(last.close<last.open)bear+=20;
 
+ let signal="WAIT";
+ let confidence=0;
 
-@app.get("/status")
-def get_status():
-    return {
-        "status": status,
-        "auto_trade": False,
-    }
+ if(bull>=70 && bull>bear+10){
+   signal="BUY";
+   confidence=Math.min(94,bull);
+ }
 
+ if(bear>=70 && bear>bull+10){
+   signal="SELL";
+   confidence=Math.min(94,bear);
+ }
 
-@app.get("/candles")
-def get_candles(asset: str = "EURUSD_otc"):
-    if asset not in candles_store:
-        return {
-            "asset": asset,
-            "candles": [],
-            "error": "Unsupported asset"
-        }
+ const s=document.getElementById("signal");
 
-    return {
-        "asset": asset,
-        "period": PERIOD,
-        "candles": candles_store[asset],
-        "count": len(candles_store[asset]),
-        "auto_trade": False,
-    }
+ s.textContent=signal;
+ s.className="signal-value "+
+   (signal==="BUY"?"buy":
+    signal==="SELL"?"sell":"wait");
+
+ document.getElementById("confidence").textContent=
+   "Confidence: "+confidence+"%";
+
+ document.getElementById("trend").textContent=
+   e50>e200?"BULLISH":
+   e50<e200?"BEARISH":"WAIT";
+
+ document.getElementById("rsi").textContent=
+   rv?rv.toFixed(1):"--";
+
+ document.getElementById("momentum").textContent=
+   momentum>0?"UP":
+   momentum<0?"DOWN":"FLAT";
+
+ document.getElementById("priceAction").textContent=
+   last.close>last.open?"BULLISH":
+   last.close<last.open?"BEARISH":"NEUTRAL";
+
+ document.getElementById("duration").textContent=
+   "5 sec";
+
+ document.getElementById("count").textContent=
+   candles.length+" / 200";
+}
+
+async function loadLive(){
+
+ const asset=document.getElementById("asset").value;
+
+ try{
+
+   const response=await fetch(
+     API+"/candles?asset="+encodeURIComponent(asset),
+     {cache:"no-store"}
+   );
+
+   if(!response.ok)
+     throw new Error("API "+response.status);
+
+   const data=await response.json();
+
+   if(!Array.isArray(data.candles))
+     throw new Error("No candle data");
+
+   candles=data.candles
+     .filter(c=>
+       c &&
+       c.closed===true &&
+       Number.isFinite(Number(c.close))
+     )
+     .sort((a,b)=>Number(a.time)-Number(b.time))
+     .slice(-500);
+
+   if(candles.length)
+     lastTime=candles[candles.length-1].time;
+
+   document.getElementById("engine").textContent="CONNECTED";
+   document.getElementById("engine").className="value good";
+
+   document.getElementById("status").textContent=
+     "LIVE DATA • "+asset;
+
+   document.getElementById("status").className=
+     "status good";
+
+   analyze();
+
+ }catch(error){
+
+   document.getElementById("engine").textContent=
+     "DISCONNECTED";
+
+   document.getElementById("engine").className=
+     "value bad";
+
+   document.getElementById("status").textContent=
+     "LIVE ENGINE ERROR: "+error.message;
+
+   document.getElementById("status").className=
+     "status bad";
+ }
+}
+
+document.getElementById("asset")
+ .addEventListener("change",()=>{
+   candles=[];
+   loadLive();
+ });
+
+loadLive();
+
+setInterval(loadLive,5000);
+
+</script>
+</body>
+</html>
