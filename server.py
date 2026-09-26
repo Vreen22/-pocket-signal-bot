@@ -1,13 +1,21 @@
 import os
 import time
 import threading
-from datetime import datetime, timezone
+import logging
+from typing import Dict, List
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from pocketoptionapi import PocketOption
 
-app = FastAPI(title="Pocket Signal Live Backend")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+app = FastAPI(title="Pocket Signal Bot")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,217 +25,248 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SSID = os.getenv("PO_SSID")
+SSID = os.getenv("PO_SSID", "").strip()
 
-api = None
-connected = False
-last_error = None
+ASSETS = [
+    "EURUSD_otc",
+    "GBPUSD_otc",
+    "USDJPY_otc",
+    "XAUUSD_otc",
+    "BTCUSD_otc",
+]
 
-cache = {}
-lock = threading.Lock()
+PERIOD = 5
+HISTORY_OFFSET = 45000
+MAX_CANDLES = 500
+
+candles_store: Dict[str, List[dict]] = {
+    asset: [] for asset in ASSETS
+}
+
+status = {
+    "connected": False,
+    "time_synced": False,
+    "message": "Starting...",
+    "auto_trade": False,
+}
+
+
+def normalize_candle(c):
+    try:
+        if isinstance(c, dict):
+            return {
+                "time": int(c.get("timestamp", c.get("time", 0))),
+                "open": float(c["open"]),
+                "high": float(c["high"]),
+                "low": float(c["low"]),
+                "close": float(c["close"]),
+                "closed": True,
+            }
+
+        return {
+            "time": int(c.timestamp),
+            "open": float(c.open),
+            "high": float(c.high),
+            "low": float(c.low),
+            "close": float(c.close),
+            "closed": True,
+        }
+
+    except Exception:
+        return None
 
 
 def connect_pocket():
-    global api, connected, last_error
-
     if not SSID:
-        last_error = "PO_SSID environment variable is missing"
-        print(last_error)
+        status["message"] = "PO_SSID is missing"
+        logging.error("PO_SSID is missing")
         return
 
-    try:
-        print("Connecting to Pocket Option...")
+    logging.info("Connecting to Pocket Option...")
 
+    try:
         api = PocketOption(SSID)
 
         ok, err = api.connect()
 
         if not ok:
-            connected = False
-            last_error = str(err)
-            print("Connection failed:", err)
+            status["message"] = f"Connection failed: {err}"
+            logging.error("Pocket Option connection failed: %s", err)
             return
 
-        while not (
-            api.check_connect()
-            and api.is_time_synced()
-        ):
+        logging.info("WebSocket connected")
+
+        # Wait for connection + time synchronization
+        deadline = time.time() + 30
+
+        while time.time() < deadline:
+            connected = api.check_connect()
+            synced = api.is_time_synced()
+
+            status["connected"] = bool(connected)
+            status["time_synced"] = bool(synced)
+
+            if connected and synced:
+                break
+
             time.sleep(0.5)
 
-        connected = True
-        last_error = None
+        if not api.check_connect():
+            status["message"] = "WebSocket not connected"
+            logging.error("WebSocket is not connected")
+            return
 
-        print("Pocket Option connected")
+        if not api.is_time_synced():
+            status["message"] = "Time synchronization failed"
+            logging.error("Time synchronization failed")
+            return
 
-    except Exception as e:
-        connected = False
-        last_error = str(e)
-        print("Connector error:", e)
+        status["message"] = "Connected + time synchronized"
 
+        logging.info("Pocket Option connected successfully")
+        logging.info("Time synchronization ready")
 
-def get_candles_from_pocket(
-    asset="EURUSD_otc",
-    period=5
-):
-    global connected, last_error
+        # Subscribe to assets first
+        for asset in ASSETS:
+            try:
+                api.subscribe(asset, period=PERIOD)
+                logging.info("Subscribed: %s", asset)
+            except Exception as e:
+                logging.error("Subscribe failed %s: %s", asset, e)
 
-    if not api or not connected:
-        return []
+        time.sleep(2)
 
-    try:
-        api.subscribe(
-            asset,
-            period=period
-        )
+        # Historical candles
+        for asset in ASSETS:
+            try:
+                logging.info("Loading history: %s", asset)
 
-        df = api.get_historical_candles(
-            asset,
-            period=period,
-            offset=45000,
-            count_request=1
-        )
+                data = api.get_historical_candles(
+                    asset,
+                    period=PERIOD,
+                    offset=HISTORY_OFFSET,
+                    count_request=1,
+                )
 
-        if df is None or len(df) == 0:
-            return []
+                if not data:
+                    logging.warning("No historical data: %s", asset)
+                    continue
 
-        result = []
+                result = []
 
-        now = int(
-            datetime.now(
-                timezone.utc
-            ).timestamp()
-        )
+                for item in data:
+                    candle = normalize_candle(item)
 
-        for _, row in df.iterrows():
+                    if candle:
+                        result.append(candle)
 
-            ts = int(row["timestamp"])
+                result.sort(key=lambda x: x["time"])
 
-            # Only CLOSED candles
-            if ts + period > now:
-                continue
+                candles_store[asset] = result[-MAX_CANDLES:]
 
-            result.append({
-                "time": ts,
-                "open": float(row["open"]),
-                "high": float(row["high"]),
-                "low": float(row["low"]),
-                "close": float(row["close"]),
-                "closed": True
-            })
+                logging.info(
+                    "Loaded %s candles for %s",
+                    len(candles_store[asset]),
+                    asset
+                )
 
-        return result[-500:]
+            except Exception as e:
+                logging.exception(
+                    "History error for %s: %s",
+                    asset,
+                    e
+                )
 
-    except Exception as e:
-        last_error = str(e)
-        print("Candle error:", e)
-        return []
+        status["message"] = "LIVE DATA READY"
 
+        # Keep updating latest candles
+        while True:
+            if not api.check_connect():
+                status["connected"] = False
+                status["message"] = "Disconnected"
+                logging.warning("Pocket Option disconnected")
+                break
 
-def connector_loop():
+            status["connected"] = True
+            status["time_synced"] = api.is_time_synced()
 
-    global cache
-
-    while True:
-
-        try:
-
-            if not connected:
-
-                connect_pocket()
-
-            if connected:
-
-                assets = [
-                    "EURUSD_otc",
-                    "GBPUSD_otc",
-                    "USDJPY_otc",
-                    "XAUUSD_otc",
-                    "BTCUSD_otc"
-                ]
-
-                for asset in assets:
-
-                    candles = get_candles_from_pocket(
+            for asset in ASSETS:
+                try:
+                    data = api.get_historical_candles(
                         asset,
-                        5
+                        period=PERIOD,
+                        offset=45000,
+                        count_request=1,
                     )
 
-                    if candles:
+                    if data:
+                        result = []
 
-                        with lock:
-                            cache[asset] = candles
+                        for item in data:
+                            candle = normalize_candle(item)
 
-                        print(
-                            asset,
-                            "closed candles:",
-                            len(candles)
-                        )
+                            if candle:
+                                result.append(candle)
 
-        except Exception as e:
+                        result.sort(key=lambda x: x["time"])
 
-            print(
-                "Loop error:",
-                e
-            )
+                        if result:
+                            candles_store[asset] = result[-MAX_CANDLES:]
 
-        time.sleep(3)
+                except Exception as e:
+                    logging.warning(
+                        "Update failed %s: %s",
+                        asset,
+                        e
+                    )
+
+            time.sleep(5)
+
+    except Exception as e:
+        status["connected"] = False
+        status["message"] = f"Fatal error: {e}"
+        logging.exception("Pocket Option fatal error")
 
 
 @app.on_event("startup")
-def startup():
-
+def startup_event():
     thread = threading.Thread(
-        target=connector_loop,
+        target=connect_pocket,
         daemon=True
     )
-
     thread.start()
 
 
 @app.get("/")
 def root():
-
     return {
-        "status": "LIVE SIGNAL BACKEND",
-        "connected": connected,
+        "service": "Pocket Signal Bot",
+        "status": status,
         "auto_trade": False,
-        "candles": {
-            k: len(v)
-            for k, v in cache.items()
-        }
     }
 
 
 @app.get("/status")
-def status():
-
+def get_status():
     return {
-        "connected": connected,
+        "status": status,
         "auto_trade": False,
-        "last_error": last_error,
-        "assets": {
-            k: len(v)
-            for k, v in cache.items()
-        }
     }
 
 
 @app.get("/candles")
-def candles(
-    asset: str = Query(
-        "EURUSD_otc"
-    )
-):
-
-    with lock:
-        data = cache.get(
-            asset,
-            []
-        )
+def get_candles(asset: str = "EURUSD_otc"):
+    if asset not in candles_store:
+        return {
+            "asset": asset,
+            "candles": [],
+            "error": "Unsupported asset"
+        }
 
     return {
-        "connected": connected,
         "asset": asset,
-        "candles": data,
-        "auto_trade": False
+        "period": PERIOD,
+        "candles": candles_store[asset],
+        "count": len(candles_store[asset]),
+        "auto_trade": False,
     }
